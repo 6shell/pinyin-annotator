@@ -58,11 +58,11 @@
   /* 标题行右侧可挂低频操作（如「重置样式」） */
   .card h2.h2-row { display: flex; align-items: center; gap: 10px; }
   .card h2.h2-row .h2-extra { margin-left: auto; letter-spacing: 0; }
-  #btn-reset {
+  #btn-reset, #btn-help-toggle {
     font-size: 12px; padding: 4px 12px; color: var(--ink-soft);
     background: transparent; border-style: dashed;
   }
-  #btn-reset:hover { color: var(--accent-dark); border-color: var(--accent); }
+  #btn-reset:hover, #btn-help-toggle:hover { color: var(--accent-dark); border-color: var(--accent); }
   textarea {
     width: 100%; min-height: 220px;
     border: 1px solid var(--line); border-radius: 8px;
@@ -197,6 +197,10 @@
   body.reading-mode #btn-exit-read { display: block; }
   body.reading-mode #preview .py-result-item { cursor: default; }
   body.reading-mode #preview .py-result-item:hover .py-chinese-item { background: none; }
+  /* 阅读模式 / 打印默认隐藏「编辑痕迹」：手动改读音的橙色拼音、强制儿化的底纹。
+     仅当勾选「易错点高亮」（body.hi-on）时才保留全部高亮 */
+  body.reading-mode:not(.hi-on) #preview .py-result-item.fixed .py-pinyin-item { color: #6b6558; font-weight: 400; }
+  body.reading-mode:not(.hi-on) #preview .py-result-item.erh-mark .py-chinese-item { background: none; }
   .help { max-width: 1180px; margin: 0 auto 30px; padding: 0 20px; }
   .help .card { padding: 20px 24px; }
   .help ol { padding-left: 20px; font-size: 13.5px; }
@@ -222,7 +226,9 @@
     #preview .py-result-item:hover .py-chinese-item { background: none; }
     body.no-print-footer footer { display: none !important; }
     #preview .py-result-item.hi .py-chinese-item { background: #ffedbc; }
-    #preview .py-result-item.erh-mark .py-chinese-item { background: var(--accent-light); }
+    /* 未勾选「易错点高亮」时不打印编辑痕迹（颜色基准与 #preview rt 保持一致） */
+    body:not(.hi-on) #preview .py-result-item.fixed .py-pinyin-item { color: #6b6558; font-weight: 400; }
+    body:not(.hi-on) #preview .py-result-item.erh-mark .py-chinese-item { background: none; }
     @page { margin: 18mm 16mm; }
   }
 </style>
@@ -289,7 +295,12 @@
             <option value='"SimHei","PingFang SC","Microsoft YaHei",sans-serif'>黑体</option>
             <option value='"Comic Sans MS","Microsoft YaHei",sans-serif'>圆润手写风</option>
           </select>
-          <small class="pyfont-hint">注意：楷体、宋体等常见中文字体里的拼音其实是<b>普通拉丁字母写法（双层 a、单层 g）</b>，不是教材拼音。用于教学场景，建议选择「人教版拼音字体」等专门的拼音字体（未安装时会提示下载）。</small>
+          <small class="pyfont-hint">常见中文字体里的拼音是<b>拉丁字母写法</b>（比如 a），用于教学时建议选择<b>专用拼音字体</b>。</small>
+        </div>
+        <div class="ctl pyfont-ctl">
+          <label class="lbl">本地字体</label>
+          <label class="check"><input type="checkbox" id="allfonts-toggle"> 列出本机全部已安装字体</label>
+          <small class="pyfont-hint">默认只显示常用字体，避免下拉列表过长；勾选后需较新版本的 Chrome / Edge，首次使用时浏览器会请求「字体访问」权限。</small>
         </div>
         <div class="ctl pyfont-ctl" id="seg-ctl">
           <label class="lbl" for="seg-group">分词方案</label>
@@ -298,7 +309,7 @@
             <button type="button" id="seg-reverse">逆向匹配</button>
             <button type="button" id="seg-none" class="on">逐字注音</button>
           </div>
-          <small class="pyfont-hint" id="seg-hint">智能分词按内置的现代汉语常用词词典（约 3 万词）把词组的字连在一起、词间留出空隙，更贴近教材词组注音；点击任意生字可在弹窗中手动断词 / 合词，修正机器分词错误。</small>
+          <small class="pyfont-hint" id="seg-hint" hidden></small>
         </div>
         <div class="ctl">
           <label class="lbl" for="chargap">字间距</label>
@@ -395,10 +406,15 @@
 
 <section class="help no-print">
   <div class="card">
-    <h2>怎么用</h2>
+    <h2 class="h2-row">怎么用
+      <button type="button" class="h2-extra" id="btn-help-toggle" title="折叠 / 展开使用说明">▸ 收起</button>
+    </h2>
+    <div id="help-body">
     <ol>
       <li>把要注音的文章粘贴进左侧输入框，或点「导入 TXT」选择 txt 文件（自动识别 UTF-8 / GBK 编码）；</li>
       <li>按小朋友的年龄调整字号、字体和间距，幼儿园建议 32px 以上；遇到注错的读音，点击那个字手动改，轻声 / 助词读音（子 zi、地 de、着 zhe 等）已收录在候选中，常见轻声词（豆子、椅子、高兴地等）会自动标注；</li>
+      <li>拼音字体：楷体、宋体等常见中文字体里的拼音其实是普通拉丁字母写法（双层 a、单层 g），不是教材里的写法。用于教学场景，建议在「拼音字体」里选择「人教版拼音字体」等专门的拼音字体，未安装时选择它会弹出下载与安装步骤提示；也可以勾选「列出本机全部已安装字体」从本机字体里挑（需较新版本的 Chrome / Edge 并允许字体访问权限，常见中文字体会直接显示中文名，如 微软雅黑）；</li>
+      <li>「分词方案」选「智能分词」时，会按内置的现代汉语常用词词典（约 3 万词）把词组的字连在一起、词间留出空隙，更贴近教材的词组注音（多字词读音也按词典整词标注，如 银行 yín háng）；机器偶尔切错时，点击任意生字，可在弹窗里「在此字前断词 / 与后一字连成词」手动修正；「逆向匹配」是另一种自动切分算法，可切换对比效果；</li>
       <li>文章长时默认按「翻页」显示，每页字数可调；「连续滚动」模式一次显示全部（上限 2 万字，超过请用翻页模式）；</li>
       <li>点「进入阅读模式」隐藏编辑区，就可以把设备直接递给小朋友看，方向键 ←→ 也能翻页；</li>
       <li>「复制注音内容」支持三种格式：富文本（直接粘贴进 Word）、HTML ruby 标签（&lt;ruby&gt;中国&lt;rt&gt;zhōng guó&lt;/rt&gt;&lt;/ruby&gt;）、字「拼音」逐字对照；</li>
@@ -408,6 +424,7 @@
       <li>点「打印 / 导出 PDF」，在打印窗口选择打印机或「另存为 PDF」即可。</li>
     </ol>
     <p class="privacy">内容安全说明：全部注音转换都在您自己的浏览器里完成，文章内容不会上传到任何服务器，可以放心处理校内稿件。「一 / 不」默认按实际读音标注变调，如需与教材原调标注一致，可切换为「标原调」。「检查更新」仅联网获取拼音引擎的新版本，不会上传文章内容。</p>
+    </div>
   </div>
 </section>
 
@@ -968,6 +985,118 @@ window.__ENGINE_VERSION__ = "3.29.4";
     setCache: function (v) { pyFontCache = v; }
   };
 
+  // ===== 本地字体枚举（可选，默认关闭）=====
+  // 勾选后通过 Local Font Access API（window.queryLocalFonts，Chrome / Edge 较新版本，
+  // 安全上下文 + 用户手势 + 首次需授权）枚举本机全部字体族，按族名去重排序后以
+  // 「本地已安装字体」分组追加到「汉字字体」与「拼音字体」两个下拉框；取消勾选即移除。
+  function localFontGroups() {
+    return document.querySelectorAll('optgroup[data-local-fonts]');
+  }
+  function removeLocalFontGroups() {
+    var groups = localFontGroups();
+    for (var i = 0; i < groups.length; i++) groups[i].parentNode.removeChild(groups[i]);
+  }
+  function addLocalFontGroups(fonts) {
+    removeLocalFontGroups();
+    // queryLocalFonts 返回的是字体的英文族名（如 Microsoft YaHei），
+    // 中文用户按中文名找字体更顺手：常见字体映射为中文名显示（CSS 仍用真实族名）
+    var CN_NAMES = {
+      "SimSun": "宋体", "NSimSun": "新宋体", "SimHei": "黑体", "Microsoft YaHei": "微软雅黑",
+      "Microsoft YaHei UI": "微软雅黑", "KaiTi": "楷体", "KaiTi_GB2312": "楷体_GB2312",
+      "FangSong": "仿宋", "FangSong_GB2312": "仿宋_GB2312", "DengXian": "等线",
+      "LiSu": "隶书", "YouYuan": "幼圆", "STKaiti": "华文楷体", "STXihei": "华文细黑",
+      "STZhongsong": "华文中宋", "STFangsong": "华文仿宋", "STXinwei": "华文新魏",
+      "STCaiyun": "华文彩云", "STHupo": "华文琥珀", "STXingkai": "华文行楷", "STLiti": "华文隶书",
+      "STSong": "华文宋体", "FZShuTi": "方正舒体", "FZYaoTi": "方正姚体",
+      "PingFang SC": "苹方-简", "Hiragino Sans GB": "冬青黑体", "Songti SC": "宋体-简",
+      "Kaiti SC": "楷体-简", "Yuanti SC": "圆体-简", "BiauKai": "标楷体"
+    };
+    var seen = {}, families = [];
+    for (var i = 0; i < fonts.length; i++) {
+      var fam = fonts[i] && fonts[i].family;
+      if (!fam || seen[fam]) continue;
+      seen[fam] = true;
+      families.push(fam);
+    }
+    if (!families.length) return 0;
+    families.sort(function (a, b) {
+      var da = CN_NAMES[a] || a, db = CN_NAMES[b] || b;
+      return da.localeCompare(db, "zh-Hans-CN");
+    });
+    var targets = [$("fontfamily"), $("pyfont")];
+    for (var t = 0; t < targets.length; t++) {
+      var og = document.createElement("optgroup");
+      og.label = "本地已安装字体";
+      og.setAttribute("data-local-fonts", "1");
+      for (var j = 0; j < families.length; j++) {
+        var fam2 = families[j];
+        var safe = String(fam2).replace(/"/g, "");
+        var opt = document.createElement("option");
+        opt.value = '"' + safe + '", serif';
+        opt.textContent = CN_NAMES[fam2] || fam2;
+        og.appendChild(opt);
+      }
+      targets[t].appendChild(og);
+    }
+    return families.length;
+  }
+  function selectedInLocalGroup(sel) {
+    var opt = sel.options[sel.selectedIndex];
+    return !!(opt && opt.parentNode && opt.parentNode.getAttribute &&
+              opt.parentNode.getAttribute("data-local-fonts") === "1");
+  }
+  // 注意：须在移除分组「之前」调用——分组一旦移除，选中项随之消失，selectedIndex 失效
+  function resetFontSelectionAfterCollapse(ffWasLocal, pfWasLocal) {
+    var ff = $("fontfamily");
+    if (ffWasLocal) {
+      ff.selectedIndex = 0;
+      preview.style.fontFamily = ff.value;
+    }
+    var pf = $("pyfont");
+    if (pfWasLocal) {
+      if (pyFontInstalled()) selectPyFontOption();
+      else {
+        for (var i = 0; i < pf.options.length; i++) {
+          if (pf.options[i].value === "inherit") { pf.selectedIndex = i; break; }
+        }
+        preview.style.setProperty("--py-font", pf.value);
+      }
+    }
+  }
+  $("allfonts-toggle").addEventListener("change", function () {
+    var box = this;
+    if (!box.checked) {   // 取消勾选：移除枚举分组，选中项若是枚举字体则回退默认
+      var ffWasLocal = selectedInLocalGroup($("fontfamily"));
+      var pfWasLocal = selectedInLocalGroup($("pyfont"));
+      removeLocalFontGroups();
+      resetFontSelectionAfterCollapse(ffWasLocal, pfWasLocal);
+      return;
+    }
+    if (typeof window.queryLocalFonts !== "function") {
+      box.checked = false;
+      alert("当前浏览器不支持枚举本地字体：请使用较新版本的 Chrome / Edge，并允许「字体访问」权限。");
+      return;
+    }
+    try {
+      window.queryLocalFonts().then(function (fonts) {
+        if (!box.checked) return;   // 枚举期间用户已取消勾选
+        var n = addLocalFontGroups(fonts);
+        if (!n) {
+          box.checked = false;
+          alert("未能读取到本机字体列表，请重试。");
+        }
+      }).catch(function (err) {
+        box.checked = false;
+        alert(err && err.name === "NotAllowedError"
+          ? "您拒绝了「字体访问」权限，已取消勾选。可重新勾选后授权，或继续使用上方常用字体。"
+          : "枚举本地字体失败，已取消勾选。");
+      });
+    } catch (eEnum) {
+      box.checked = false;
+      alert("枚举本地字体失败，已取消勾选。");
+    }
+  });
+
   // ===== 中文分词（pinyin-pro segment + 内置现代汉语常用词词典）=====
   // 词典来自 @pinyin-pro/data/modern（取词频前 3 万的双字及以上词，gzip+base64 内嵌，
   // 含真实拼音：常驻注册后多字词读音也会按词典标注，更贴近教材）。
@@ -1011,6 +1140,7 @@ window.__ENGINE_VERSION__ = "3.29.4";
         $("seg-reverse").className = "";
         var tip = $("seg-hint");
         if (tip) {
+          tip.hidden = false;
           tip.textContent = "当前浏览器不支持解压分词词典（需较新版本的 Chrome / Edge / Firefox / Safari），已回退为逐字注音。";
           tip.style.color = "#c0392b";
         }
@@ -1050,7 +1180,10 @@ window.__ENGINE_VERSION__ = "3.29.4";
   $("show-py").addEventListener("change", function () {
     preview.classList.toggle("no-show-pinyin", !this.checked);
   });
-  $("hi-toggle").addEventListener("change", function () { renderView(); });
+  $("hi-toggle").addEventListener("change", function () {
+    document.body.classList.toggle("hi-on", this.checked);   // 打印 / 阅读模式据此决定是否保留高亮
+    renderView();
+  });
   $("print-footer").addEventListener("change", function () {
     document.body.classList.toggle("no-print-footer", !this.checked);
   });
@@ -1069,6 +1202,9 @@ window.__ENGINE_VERSION__ = "3.29.4";
     document.getElementById("pyfont-toast").hidden = true;
     if (pyFontInstalled()) selectPyFontOption();
     else preview.style.setProperty("--py-font", pf.value);
+    // 本地字体枚举：恢复默认关闭并移除枚举分组
+    var afBox = $("allfonts-toggle");
+    if (afBox && afBox.checked) { afBox.checked = false; removeLocalFontGroups(); }
     // 间距与显示开关
     $("chargap").value = 2;
     preview.style.setProperty("--char-gap", "2px");
@@ -1082,6 +1218,7 @@ window.__ENGINE_VERSION__ = "3.29.4";
     $("show-py").checked = true;
     preview.classList.remove("no-show-pinyin");
     $("hi-toggle").checked = false;
+    document.body.classList.remove("hi-on");
     $("print-footer").checked = true;
     document.body.classList.remove("no-print-footer");
     // 翻页方式与每页字数
@@ -1108,6 +1245,22 @@ window.__ENGINE_VERSION__ = "3.29.4";
   $("perpage").addEventListener("change", function () {
     perPage = parseInt(this.value, 10) || 600;
     renderView();
+  });
+
+  // ===== 「怎么用」折叠：首次访问默认展开，浏览器记住展开 / 折叠状态 =====
+  var helpBody = $("help-body"), helpBtn = $("btn-help-toggle");
+  var HELP_KEY = "py-help-collapsed";
+  function applyHelpState(collapsed) {
+    helpBody.style.display = collapsed ? "none" : "";
+    helpBtn.textContent = collapsed ? "▾ 展开怎么用" : "▸ 收起";
+  }
+  var helpCollapsed = false;
+  try { helpCollapsed = localStorage.getItem(HELP_KEY) === "1"; } catch (eHelp) { helpCollapsed = false; }
+  applyHelpState(helpCollapsed);
+  helpBtn.addEventListener("click", function () {
+    helpCollapsed = !helpCollapsed;
+    try { localStorage.setItem(HELP_KEY, helpCollapsed ? "1" : "0"); } catch (eHelp2) {}
+    applyHelpState(helpCollapsed);
   });
   $("pg-prev").addEventListener("click", function () {
     if (curPage > 0) { curPage--; renderView(); window.scrollTo({ top: 0, behavior: "smooth" }); }
