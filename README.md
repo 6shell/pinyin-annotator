@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Engine](https://img.shields.io/badge/%E6%8B%BC%E9%9F%B3%E5%BC%95%E6%93%8E-pinyin--pro-orange)](https://github.com/zh-lx/pinyin-pro)
 
-**在线使用：**[拼音注音小助手](https://tjsky.github.io/pinyin-annotator/) 
+**在线使用：**[拼音注音小助手(Github Page)](https://tjsky.github.io/pinyin-annotator/) |[拼音注音小助手(国内用户推荐访问)](https://pinyin-annotator.tjsky.net/) 
 
 ---
 
@@ -45,7 +45,7 @@
 
 ## 快速开始
 
-- **在线使用：**[拼音注音小助手](https://tjsky.github.io/pinyin-annotator/) 
+- **在线使用：**[拼音注音小助手(国外用户推荐访问)](https://tjsky.github.io/pinyin-annotator/) |[拼音注音小助手(国内用户推荐访问)](https://pinyin-annotator.tjsky.net/) 
 - **本地使用**：
   1. 下载本仓库的 `index.html`（单文件，约 360 KB）；
   2. 双击用浏览器打开——完成，你不需要安装任何东西；
