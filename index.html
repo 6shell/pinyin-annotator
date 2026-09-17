@@ -55,6 +55,14 @@
     font-size: 14px; font-weight: 500; color: var(--ink-soft);
     margin-bottom: 10px; letter-spacing: 1px;
   }
+  /* 标题行右侧可挂低频操作（如「重置样式」） */
+  .card h2.h2-row { display: flex; align-items: center; gap: 10px; }
+  .card h2.h2-row .h2-extra { margin-left: auto; letter-spacing: 0; }
+  #btn-reset {
+    font-size: 12px; padding: 4px 12px; color: var(--ink-soft);
+    background: transparent; border-style: dashed;
+  }
+  #btn-reset:hover { color: var(--accent-dark); border-color: var(--accent); }
   textarea {
     width: 100%; min-height: 220px;
     border: 1px solid var(--line); border-radius: 8px;
@@ -157,7 +165,11 @@
   #preview .py-result-item .py-chinese-item { padding: 0 0.5px; border-radius: 3px; }
   #preview .py-result-item:hover .py-chinese-item { background: var(--accent-light); }
   #preview .py-result-item.fixed .py-pinyin-item { color: var(--accent-dark); font-weight: 500; }
-  #preview.no-show-pinyin rt { display: none; }
+  /* 隐藏拼音时须把 ruby 降级为普通 inline：Chromium 中 rt 被 display:none 后
+     ruby 框仍按注音单元布局（不可断行），会导致整段文字无法换行、撑出横向滚动 */
+  #preview.no-show-pinyin rt,
+  #preview.no-show-pinyin rp { display: none; }
+  #preview.no-show-pinyin ruby { display: inline; }
   #preview .py-result-item.hi .py-chinese-item { background: #ffedbc; border-radius: 3px; }
   #preview .py-result-item.erh-mark .py-chinese-item { background: var(--accent-light); border-radius: 3px; }
   .empty-tip { color: #b9b2a3; text-align: center; padding-top: 150px; font-size: 16px; }
@@ -250,7 +262,9 @@
     </section>
 
     <section class="card">
-      <h2>第二步 · 调整样式</h2>
+      <h2 class="h2-row">第二步 · 调整样式
+        <button type="button" class="h2-extra" id="btn-reset" title="恢复全部样式为默认值（字号 28px、楷体、跟随汉字、逐字注音、间距 2px / 2.3 / 12px 等）">↺ 重置样式</button>
+      </h2>
       <div class="control-group">
         <div class="ctl">
           <label class="lbl" for="fontsize">汉字字号</label>
@@ -345,16 +359,15 @@
         </div>
       </div>
       <div class="btn-row" style="margin-top:16px;">
-        <button class="primary" id="btn-print" style="flex:1;">打印 / 导出 PDF</button>
-        <button class="primary" id="btn-read" style="flex:1;">进入阅读模式</button>
-        <button type="button" id="btn-reset" title="恢复全部样式为默认值（字号 28px、楷体、跟随汉字、逐字注音、间距 2px / 2.3 / 12px 等）">重置样式</button>
+        <button class="primary" id="btn-print" style="flex:1;white-space:nowrap;">打印 / 导出 PDF</button>
+        <button class="primary" id="btn-read" style="flex:1;white-space:nowrap;">进入阅读模式</button>
       </div>
       <div class="btn-row">
         <button id="btn-copy" style="flex:1;">复制注音后内容</button>
-        <select id="copy-format" style="flex:1;min-width:130px;">
-          <option value="word">复制格式：富文本（Word）</option>
-          <option value="ruby">复制格式：HTML ruby 标签</option>
-          <option value="pair">复制格式：字「拼音」对照</option>
+        <select id="copy-format" style="flex:1;min-width:130px;" aria-label="复制格式" title="复制格式">
+          <option value="word">富文本（Word）</option>
+          <option value="ruby">HTML ruby 标签</option>
+          <option value="pair">字「拼音」对照</option>
         </select>
       </div>
       <div class="ctl" style="margin-top:14px;">
@@ -389,7 +402,7 @@
       <li>文章长时默认按「翻页」显示，每页字数可调；「连续滚动」模式一次显示全部（上限 2 万字，超过请用翻页模式）；</li>
       <li>点「进入阅读模式」隐藏编辑区，就可以把设备直接递给小朋友看，方向键 ←→ 也能翻页；</li>
       <li>「复制注音内容」支持三种格式：富文本（直接粘贴进 Word）、HTML ruby 标签（&lt;ruby&gt;中国&lt;rt&gt;zhōng guó&lt;/rt&gt;&lt;/ruby&gt;）、字「拼音」逐字对照；</li>
-      <li>「儿化音」提供两种标注方式：逐字注音（花儿 huā er，适合指读认字）与标准拼音（花儿 huār，符合汉语拼音方案的拼写规则）；自动判断不准时，点击「儿」字可强制指定儿化或非儿化——示例文章里就埋了练习点：人名「花儿」不是儿化，而「好好儿」是真儿化；</li>
+      <li>「儿化音」提供两种标注方式：逐字注音（花儿 huā er，适合指读认字）与标准拼音（花儿 huār，符合汉语拼音方案的拼写规则）；自动判断不准时，点击「儿」字可强制指定儿化或非儿化——示例文章里就埋了练习点：人名「可儿」不是儿化，而「一会儿」是真儿化；</li>
       <li>勾选「易错点高亮」，预览会用底纹标出多音字、儿化音、的地得、一 / 不变调、常见轻声字，方便快速扫视检查；</li>
       <li>拼音引擎已内嵌、离线可用，同时支持联网同步上游（zh-lx/pinyin-pro）更新：有新版会自动缓存到浏览器，刷新页面即用新版；</li>
       <li>点「打印 / 导出 PDF」，在打印窗口选择打印机或「另存为 PDF」即可。</li>
@@ -401,7 +414,7 @@
 <footer>
   <span>汉语拼音注音小助手</span> · <a href="https://github.com/tjsky/pinyin-annotator" target="_blank" rel="noopener">开源仓库：github.com/tjsky/pinyin-annotator</a> · <a href="https://www.tjsky.net" target="_blank" rel="noopener">秋风于渭水：tjsky.net</a><br>
   <span>本地运行 · 文章内容不上传 · 拼音引擎 pinyin-pro</span><br>
-  <span>推荐拼音字体「印氪先生汉语拼音」需自行安装，仅限个人公益使用，商业使用请联系作者 <a href="https://www.zhihu.com/people/zou-wen-biao" target="_blank" rel="noopener">印氪先生</a> 授权</span>
+  <span>推荐拼音字体「印氪先生汉语拼音」需自行安装，仅限非商业场景使用，如需商用请联系作者 <a href="https://www.zhihu.com/people/zou-wen-biao" target="_blank" rel="noopener">印氪先生</a> 购买授权（本工具代码中不含字体文件）</span>
 </footer>
 
 <!-- 选择拼音字体但本地未安装时的提示条 -->
@@ -412,7 +425,7 @@
   <p><a href="https://tjsky.lanzouq.com/i2O0y48swrgb" target="_blank" rel="noopener">下载：印氪先生汉语拼音优化版W4.zip（蓝奏云）</a> · 字体作者：<a href="https://www.zhihu.com/people/zou-wen-biao" target="_blank" rel="noopener">印氪先生（知乎）</a></p>
   <p>安装步骤：下载 → 解压 → 双击 <b>印氪先生汉语拼音优化版W4-Regular-1.001.ttf</b> → 点左上角「安装」。安装后需<b>完全退出并重启浏览器</b>（仅刷新页面无效），再点下方「重新检测」。</p>
   <p><button type="button" id="pyfont-recheck">重新检测</button> <span id="pyfont-recheck-status" hidden></span></p>
-  <p class="lic">该字体仅限个人公益使用，商业使用请联系字体作者授权。</p>
+  <p class="lic">该字体仅限非商业场景下使用；如需商用或内嵌，请联系字体作者印氪先生购买授权。本工具代码中不包含字体文件。</p>
 </div>
 
 <div id="popover" role="dialog" aria-label="修改读音">
