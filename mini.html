@@ -210,6 +210,41 @@
   }
   button.primary:hover { background: var(--accent-dark); color: #fff; }
   .char-count { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+  /* 繁简转换行：不换行、适当缩小字号，保证 转简体 / 转繁体 / 词汇勾选 一行放下 */
+  .oc-row { flex-wrap: nowrap; }
+  .oc-row button { font-size: 12px; padding: 7px 10px; white-space: nowrap; }
+  .oc-row .check { font-size: 12px; white-space: nowrap; }
+  /* —— 长文模式 —— */
+  #lm-banner {
+    display: flex; align-items: center; gap: 10px; margin-top: 10px;
+    padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--accent-light); font-size: 12px; color: var(--ink);
+  }
+  #lm-banner .lm-bar { flex: 1; height: 6px; border-radius: 3px; background: #e8e1d3; overflow: hidden; min-width: 40px; }
+  #lm-banner .lm-bar > div { height: 100%; background: var(--accent); border-radius: 3px; transition: width .2s; }
+  #lm-banner button { font-size: 12px; padding: 4px 8px; flex-shrink: 0; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .pg-content p.cont { margin-bottom: 0; }   /* 超长段落切分续排块之间不留段距 */
+  .pg-content .lm-wait { text-align: center; color: var(--ink-soft); padding-top: 120px; font-size: 14px; }
+  /* 长文模式打印范围对话框 */
+  #print-dlg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+  #print-dlg[hidden] { display: none; }
+  #print-dlg .dlg-mask { position: absolute; inset: 0; background: rgba(40,35,25,.45); }
+  #print-dlg .dlg-box {
+    position: relative; background: var(--paper); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px; width: min(430px, calc(100vw - 40px));
+    box-shadow: 0 8px 30px rgba(0,0,0,.18);
+  }
+  #print-dlg h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; color: var(--ink); }
+  #print-dlg .dlg-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 12px; flex-wrap: wrap; }
+  #print-dlg .dlg-row input[type="number"] {
+    width: 84px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+    font-family: inherit; font-size: 13px; background: #fff; color: var(--ink);
+  }
+  #print-dlg .dlg-btns { display: flex; flex-direction: column; gap: 8px; }
+  #print-dlg .dlg-btns button { width: 100%; }
+  #print-dlg .dlg-hint { font-size: 12px; color: var(--ink-soft); margin-top: 10px; line-height: 1.6; }
+  #print-dlg .dlg-status { font-size: 12px; color: var(--accent-dark); margin-top: 8px; min-height: 1em; }
   .control-group { margin-top: 4px; display: flex; flex-direction: column; gap: 11px; }
   .ctl { display: flex; align-items: center; gap: 10px; font-size: 13px; }
   .ctl label.lbl { width: 84px; color: var(--ink-soft); flex-shrink: 0; }
@@ -466,9 +501,22 @@
       page-break-after: always; break-after: page;
     }
     .paper:last-child { page-break-after: auto; break-after: auto; }
+    /* 打印时纸张间距由 page-break-after 强制分页承担；保留 margin 会把每张纸往下
+       推 16px，内容超出物理页高几个像素，溢出行被挤成大量近乎空白的 PDF 页 */
+    .paper + .paper { margin-top: 0; }
     .pg-content { height: auto; overflow: visible; }
+    /* 末段落的 margin-bottom 会把纸张撑高超物理页高，溢出几个像素即产生整页空白 PDF 页 */
+    .pg-content > p:last-child { margin-bottom: 0; }
     #preview .py-result-item:hover .py-chinese-item { background: none; }
     body.no-print-footer footer { display: none !important; }
+    /* 站点页脚改为每页底部的水印式单行：普通流的页脚跟在最后一张纸后面，
+       末页接近满页时会被挤到下一个物理页，产生整页空白的 PDF 页 */
+    footer {
+      position: fixed; bottom: 2mm; left: 0; right: 0;
+      text-align: center; padding: 0; line-height: 1.6;
+    }
+    footer > span:not([data-i18n="ft.tag"]):not([data-i18n="ft.brand"]), footer br, footer a { display: none; }
+    footer > span[data-i18n="ft.brand"]::after { content: " · "; }
     #preview .py-result-item.hi .py-chinese-item, #print-area .py-result-item.hi .py-chinese-item { background: #ffedbc; }
     /* 未勾选「易错点高亮」时不打印编辑痕迹（颜色基准与 #preview rt 保持一致） */
     body:not(.hi-on) #preview .py-result-item.fixed .py-pinyin-item,
@@ -513,9 +561,19 @@
       <button id="btn-import" data-i18n="b.import">导入 TXT</button>
       <button id="btn-sample" data-i18n="b.sample">填入示例文章</button>
       <button id="btn-clear" data-i18n="b.clear">清空</button>
+      <span class="char-count" id="count">0 字</span>
+    </div>
+    <!-- 繁简转换行（仅内嵌 OpenCC 的版本显示）：转简体 / 转繁体 / 常用词汇勾选，一行放满 -->
+    <div class="btn-row oc-row" id="oc-row" style="display:none;">
       <button id="btn-t2s" style="display:none;" data-i18n="b.t2s" data-i18n-title="cv.t2s" title="把输入框全文转成简体（OpenCC）">转为简体</button>
       <button id="btn-s2t" style="display:none;" data-i18n="b.s2t" data-i18n-title="cv.s2t" title="把输入框全文转成繁体（OpenCC）">转为繁体</button>
-      <span class="char-count" id="count">0 字</span>
+      <label class="check" id="oc-phrases-ctl" style="display:none;"><input type="checkbox" id="oc-phrases"> <span data-i18n="ck.ocph">同时转换常用词汇</span></label>
+    </div>
+    <!-- 长文模式横幅：分块排版进度 + 退出按钮（仅 >3 万字时显示） -->
+    <div id="lm-banner" hidden>
+      <span id="lm-text"></span>
+      <div class="lm-bar"><div id="lm-bar-fill" style="width:0%"></div></div>
+      <button type="button" id="lm-exit" data-i18n="lm.exit">退出长文模式</button>
     </div>
     <!-- 高频操作紧贴输入区（清空下一行），不必拖到样式区底部寻找 -->
     <div class="btn-row" style="margin-top:14px;">
@@ -597,7 +655,7 @@
           <small class="pyfont-hint" id="seg-hint" hidden></small>
         </div>
         <div class="ctl pyfont-ctl" id="ph-ctl">
-          <label class="lbl">音标</label>
+          <label class="lbl" data-i18n="ph.lbl">音标</label>
           <div class="seg" role="group" aria-label="音标方案" data-i18n-aria="ph.lbl">
             <button type="button" id="ph-py" class="on" data-i18n="ph.py">拼音</button>
             <button type="button" id="ph-zy" data-i18n="ph.zy">注音</button>
@@ -657,6 +715,15 @@
           </div>
           <small class="pyfont-hint" id="std-hint" data-i18n="rs.hint">普通话读音以《现代汉语词典》为准（数据来源 <code>zh-lx/pinyin-pro</code> 项目），台湾读音以《重編國語辭典修訂本》为准（数据来源 <code>g0v/萌典</code> 项目）。</small>
         </div>
+        <div class="ctl pyfont-ctl" id="oc-variant-ctl" style="display:none;">
+          <label class="lbl" data-i18n="l.ocvar">繁简转换</label>
+          <select id="oc-variant" style="flex:1;max-width:300px;">
+            <option value="t" data-i18n="ocv.t">简体 ⇆ 标准繁体</option>
+            <option value="tw" data-i18n="ocv.tw">简体 ⇆ 台湾繁体</option>
+            <option value="hk" data-i18n="ocv.hk">简体 ⇆ 香港繁体</option>
+          </select>
+          <small class="pyfont-hint" data-i18n="ocv.hint">选「台湾繁体 / 香港繁体」时，可配合「同时转换常用词汇」把地区常用词一并转换（鼠标→滑鼠、软件→軟體等）；「标准繁体」仅转换用字。</small>
+        </div>
         <div class="ctl">
           <label class="lbl" data-i18n="l.erhua">儿化音</label>
           <div class="seg" role="group" aria-label="儿化音标注方式" data-i18n-aria="eh.aria">
@@ -666,7 +733,7 @@
         </div>
         <div class="ctl">
           <label class="lbl" data-i18n="l.pfooter">打印页脚</label>
-          <label class="check"><input type="checkbox" id="print-footer" checked> <span data-i18n="ck.pfooter">打印页底部显示「本地运行 · 文章内容不上传」</span></label>
+          <label class="check"><input type="checkbox" id="print-footer" checked> <span data-i18n="ck.pfooter">页脚显示「本地运行 · 内容不上传」</span></label>
         </div>
       </div>
       <div class="ctl" style="margin-top:14px;">
@@ -730,10 +797,32 @@
 
 <footer>
   <span data-i18n="ft.brand">汉语拼音注音小助手</span> · <a href="https://github.com/tjsky/pinyin-annotator" target="_blank" rel="noopener">开源仓库：github.com/tjsky/pinyin-annotator</a> · <a href="https://www.tjsky.net" target="_blank" rel="noopener">秋风于渭水：tjsky.net</a><br>
-  <span data-i18n="ft.tag">本地运行 · 文章内容不上传 · 拼音引擎 pinyin-pro</span><br>
+  <span data-i18n="ft.tag">本地运行 · 文章内容不上传</span><span class="ft-eng" data-i18n="ft.eng"> · 拼音引擎 pinyin-pro</span><br>
   <span data-i18n="ft.lic">推荐拼音字体「印氪先生汉语拼音」需自行安装，仅限非商业场景使用，如需商用请联系作者 <a href="https://www.zhihu.com/people/zou-wen-biao" target="_blank" rel="noopener">印氪先生</a> 购买授权（本工具代码中不含字体文件）</span>
 </footer>
 
+<!-- 长文模式打印范围对话框（>3 万字时，「打印 / 导出 PDF」改为打开此对话框） -->
+<div id="print-dlg" hidden>
+  <div class="dlg-mask" id="pd-mask"></div>
+  <div class="dlg-box">
+    <h3 data-i18n="pd.title">打印 / 导出 PDF（长文模式）</h3>
+    <div class="dlg-row">
+      <span data-i18n="pd.range">打印范围</span>
+      <input type="number" id="pd-from" min="1" step="1" aria-label="起始页"> <span>–</span>
+      <input type="number" id="pd-to" min="1" step="1" aria-label="结束页">
+      <span id="pd-total" style="color:var(--ink-soft)"></span>
+    </div>
+    <div class="dlg-btns">
+      <button class="primary" id="pd-go" data-i18n="pd.go">打印所选范围</button>
+      <button id="pd-all" data-i18n="pd.all">分批打印全书（每批 100 页）</button>
+      <button id="pd-merge" data-i18n="pd.merge">合并 PDF 文件…（按文件名排序）</button>
+      <button id="pd-cancel" data-i18n="pd.cancel">取消</button>
+    </div>
+    <p class="dlg-hint" data-i18n="pd.hint">长文分批打印：每批在打印对话框中「另存为 PDF」保存为一个文件，关闭对话框后会自动弹出下一批；全部保存后点「合并 PDF 文件」，按文件名顺序合并成一个 PDF（全程本地完成，不上传）。</p>
+    <p class="dlg-status" id="pd-status"></p>
+    <input type="file" id="pd-files" multiple accept="application/pdf,.pdf" hidden>
+  </div>
+</div>
 <!-- 选择拼音字体但本地未安装时的提示条 -->
 <div id="pyfont-toast" hidden>
   <button type="button" id="pyfont-toast-close" title="关闭" data-i18n-title="a.close">×</button>
@@ -802,6 +891,12 @@ var I18N = {
     "b.clear": "清空",
     "b.t2s": "轉為簡體", "b.s2t": "轉為繁體",
     "cv.t2s": "把輸入框全文轉成簡體（OpenCC）", "cv.s2t": "把輸入框全文轉成繁體（OpenCC）",
+    "l.ocvar": "繁簡轉換",
+    "ocv.t": "簡體 ⇆ 標準繁體", "ocv.tw": "簡體 ⇆ 台灣繁體", "ocv.hk": "簡體 ⇆ 香港繁體",
+    "ocv.hint": "選「台灣繁體 / 香港繁體」時，可配合「同時轉換常用詞彙」把地區常用詞一併轉換（滑鼠、軟體等）；「標準繁體」僅轉換用字。",
+    "ocv.tdis": "「標準繁體」轉換不涉及地區詞彙，此選項無效",
+    "ck.ocph": "同時轉換常用詞彙",
+    "ck.ocph.tip": "勾選後把地區常用詞一併轉換（滑鼠、軟體等）",
     "cv.doing": "轉換中…", "cv.fail": "轉換引擎載入失敗，請重新整理頁面再試。",
     "b.print": "列印 / 匯出 PDF",
     "b.read": "進入閱讀模式",
@@ -879,7 +974,7 @@ var I18N = {
     "eh.char": "逐字注音",
     "eh.merge": "標準拼音",
     "l.pfooter": "列印頁尾",
-    "ck.pfooter": "列印頁底部顯示「本機執行 · 文章內容不上傳」",
+    "ck.pfooter": "頁尾顯示「本機執行 · 內容不上傳」",
     "l.engine": "拼音引擎",
     "b.engcheck": "檢查更新",
     "tip.hint": "小提示：在預覽區裡<b>點擊任意生字</b>可手動修改讀音（輕聲和助詞讀音如 zi / de / zhe 也會出現在候選裡）；點「兒」字可強制指定兒化或非兒化。勾選「易錯點高亮」可快速定位需要檢查的字。「進入閱讀模式」會隱藏編輯區，方便直接把裝置遞給小朋友。",
@@ -903,7 +998,8 @@ var I18N = {
     "help.li8": "關於粵語注音：粵拼等標音方案的標準較為混亂，暫未找到權威的教學標準和可用的開源程式庫，本工具暫時只支援漢語拼音與注音符號；歡迎香港的朋友提供權威參考資料或推薦可用方案；",
     "help.privacy": "內容安全說明：全部注音轉換都在您自己的瀏覽器裡完成，文章內容不會上傳到任何伺服器，可以放心處理校內稿件。「一 / 不」預設按實際讀音標註變調，如需與教材原調標註一致，可切換為「標原調」。「檢查更新」僅連網取得拼音引擎的新版本，不會上傳文章內容。",
     "ft.brand": "漢語拼音注音小助手",
-    "ft.tag": "本機執行 · 文章內容不上傳 · 拼音引擎 pinyin-pro",
+    "ft.tag": "本機執行 · 文章內容不上傳",
+    "ft.eng": " · 拼音引擎 pinyin-pro",
     "ft.lic": "推薦拼音字型「印氪先生漢語拼音」需自行安裝，僅限非商業場景使用，如需商用請聯絡作者 <a href=\"https://www.zhihu.com/people/zou-wen-biao\" target=\"_blank\" rel=\"noopener\">印氪先生</a> 購買授權（本工具程式碼中不含字型檔案）",
     "a.close": "關閉",
     "pt.title": "還沒有安裝「印氪先生漢語拼音」拼音字型",
@@ -919,6 +1015,29 @@ var I18N = {
     "u.chars": "{n} 字",
     "u.clipped": "（超 3 萬字，僅注音前 3 萬字）",
     "u.page": "{a} / {b} 頁",
+    "u.pageEst": "{a} / 約 {b} 頁",
+    "lm.tag": "（長文模式）",
+    "lm.exit": "退出長文模式",
+    "lm.excerpt": "（長文模式：全文 {n} 字已載入，點擊下方「退出長文模式」可恢復編輯）",
+    "lm.max": "單次最多支援 200 萬字，已只載入前 200 萬字。",
+    "lm.wait": "正在排版，請稍候…",
+    "lm.done": "長文模式：共 {n} 字 · 共 {p} 頁",
+    "lm.prog": "長文模式：共 {n} 字 · 已排版 {p} 頁（預計約 {e} 頁）",
+    "pd.title": "列印 / 匯出 PDF（長文模式）",
+    "pd.range": "列印範圍",
+    "pd.go": "列印所選範圍",
+    "pd.all": "分批列印全書（每批 100 頁）",
+    "pd.merge": "合併 PDF 檔案…（按檔名排序）",
+    "pd.cancel": "取消",
+    "pd.hint": "長文分批列印：每批在列印對話框中「另存為 PDF」儲存為一個檔案，關閉對話框後會自動彈出下一批；全部儲存後點「合併 PDF 檔案」，按檔名順序合併成一個 PDF（全程本機完成，不上傳）。",
+    "pd.errRange": "頁碼範圍無效",
+    "pd.prep": "正在排版所選頁…",
+    "pd.saving": "即將列印第 {a}–{b} 頁，請在列印對話框中選擇「另存為 PDF」。",
+    "pd.prepAll": "正在排版全書，視文章長度可能需要一些時間…",
+    "pd.batch": "即將列印第 {a}–{b} 頁（第 {i} / {m} 批），儲存後自動繼續。",
+    "pd.merging": "正在合併 {n} 個 PDF…",
+    "pd.merged": "已合併 {n} 個 PDF，開始下載 merged.pdf。",
+    "pd.mergeFail": "合併失敗：請確認已連網（首次需載入合併元件）且所選檔案為 PDF。",
     "pop.erh.merge": "前字加 r（兒化：huār）",
     "pop.erh.char": "兒單獨注音（非兒化：huā ér）",
     "pop.cut": "在此字前斷詞",
@@ -971,10 +1090,16 @@ var I18N = {
     "b.clear": "Clear",
     "b.t2s": "To Simplified", "b.s2t": "To Traditional",
     "cv.t2s": "Convert the whole text to Simplified (OpenCC)", "cv.s2t": "Convert the whole text to Traditional (OpenCC)",
+    "l.ocvar": "SC ⇄ TC profile",
+    "ocv.t": "Simplified ⇄ Standard Traditional", "ocv.tw": "Simplified ⇄ Taiwan Traditional", "ocv.hk": "Simplified ⇄ Hong Kong Traditional",
+    "ocv.hint": "With Taiwan / Hong Kong Traditional selected, tick \"Convert common vocabulary\" to localize regional words as well (e.g. 鼠标→滑鼠, 软件→軟體); Standard Traditional converts characters only.",
+    "ocv.tdis": "Standard Traditional conversion involves no regional vocabulary — this option has no effect",
+    "ck.ocph": "Convert vocabulary",
+    "ck.ocph.tip": "Also convert regional vocabulary (滑鼠, 軟體…)",
     "cv.doing": "Converting…", "cv.fail": "Failed to load the conversion engine; please reload the page.",
     "b.print": "Print / Export PDF",
     "b.read": "Reading mode",
-    "b.copy": "Copy text with phonetics",
+    "b.copy": "Copy",
     "copy.aria": "Copy format",
     "fmt.word": "Rich text (Word)",
     "fmt.ruby": "HTML ruby tags",
@@ -1010,9 +1135,9 @@ var I18N = {
     "pf.follow": "Follow hanzi font",
     "pf.round": "Rounded handwriting",
     "l.seg": "Word segmentation",
-    "seg.smart": "Smart words",
-    "seg.reverse": "Reverse match",
-    "seg.none": "Per character",
+    "seg.smart": "Smart<br>words",
+    "seg.reverse": "Reverse<br>match",
+    "seg.none": "Per<br>character",
     "l.chargap": "Letter spacing",
     "ph.lbl": "Phonetics",
     "ph.py": "Pinyin",
@@ -1048,7 +1173,7 @@ var I18N = {
     "eh.char": "Per character",
     "eh.merge": "Standard (huār)",
     "l.pfooter": "Print footer",
-    "ck.pfooter": "Show \"Runs locally · nothing is uploaded\" at the bottom of printed pages",
+    "ck.pfooter": "Show \"Runs locally · nothing is uploaded\" on printed pages",
     "l.engine": "Pinyin engine",
     "b.engcheck": "Check for updates",
     "tip.hint": "Tip: in the preview, <b>click any character</b> to adjust its reading (neutral-tone and particle readings like zi / de / zhe are offered too); click 「儿」 to force or forbid erhua. Enable \"Highlight tricky spots\" to quickly find characters worth checking. \"Reading mode\" hides the editor so you can hand the device to a child.",
@@ -1072,7 +1197,8 @@ var I18N = {
     "help.li8": "About Cantonese: romanization standards for Cantonese remain fragmented and no authoritative teaching standard or usable open-source library has been found, so this tool supports Hanyu Pinyin and Zhuyin only; suggestions from Hong Kong users are welcome;",
     "help.privacy": "Privacy: all annotation happens in your own browser; article content is never uploaded to any server, so school materials are safe to process. 一/不 sandhi is annotated with actual sounds by default — switch to \"Original tones\" to match textbook notation. \"Check for updates\" only fetches new engine versions online; article content is never uploaded.",
     "ft.brand": "Chinese Pinyin Annotator",
-    "ft.tag": "Runs locally · no content uploaded · engine: pinyin-pro",
+    "ft.tag": "Runs locally · no content uploaded",
+    "ft.eng": " · engine: pinyin-pro",
     "ft.lic": "The recommended pinyin font \"印氪先生汉语拼音\" must be installed separately and is for non-commercial use only; for commercial use contact the author <a href=\"https://www.zhihu.com/people/zou-wen-biao\" target=\"_blank\" rel=\"noopener\">印氪先生</a> for a license (no font file is bundled with this tool)",
     "a.close": "Close",
     "pt.title": "The \"Inker Pinyin\" font is not installed yet",
@@ -1088,6 +1214,29 @@ var I18N = {
     "u.chars": "{n} chars",
     "u.clipped": " (over 30,000 chars; only the first 30,000 are annotated)",
     "u.page": "{a} / {b}",
+    "u.pageEst": "{a} / ~{b}",
+    "lm.tag": " (long-text mode)",
+    "lm.exit": "Exit long-text mode",
+    "lm.excerpt": "(Long-text mode: full text of {n} chars loaded; click \"Exit long-text mode\" below to edit again)",
+    "lm.max": "Up to 2,000,000 characters per load; only the first 2,000,000 were loaded.",
+    "lm.wait": "Laying out, please wait…",
+    "lm.done": "Long-text mode: {n} chars · {p} pages",
+    "lm.prog": "Long-text mode: {n} chars · {p} pages laid out (est. ~{e} pages)",
+    "pd.title": "Print / Export PDF (long-text mode)",
+    "pd.range": "Page range",
+    "pd.go": "Print selected range",
+    "pd.all": "Print whole book in batches (100 pages each)",
+    "pd.merge": "Merge PDF files… (sorted by file name)",
+    "pd.cancel": "Cancel",
+    "pd.hint": "Batch printing: in each print dialog choose \"Save as PDF\" for the current batch; the next batch opens automatically after you close the dialog. When all batches are saved, click \"Merge PDF files\" to combine them into one PDF, sorted by file name (done locally, nothing is uploaded).",
+    "pd.errRange": "Invalid page range",
+    "pd.prep": "Laying out the selected pages…",
+    "pd.saving": "Printing pages {a}–{b}; choose \"Save as PDF\" in the print dialog.",
+    "pd.prepAll": "Laying out the whole book — this may take a while depending on length…",
+    "pd.batch": "Printing pages {a}–{b} (batch {i} / {m}); saving continues automatically.",
+    "pd.merging": "Merging {n} PDF files…",
+    "pd.merged": "Merged {n} PDF files — merged.pdf is downloading.",
+    "pd.mergeFail": "Merge failed: make sure you are online (the merge component loads on first use) and the selected files are PDFs.",
     "pop.erh.merge": "Add r to previous (erhua: huār)",
     "pop.erh.char": "Annotate 儿 alone (not erhua: huā ér)",
     "pop.cut": "Break before this character",
@@ -1303,7 +1452,18 @@ function pyToZhuyin(py) {
     if (i + 1 < parText.length && HAN_RE.test(parText[i + 1])) return false;
     if (ERHUA_KEEP[parText[i - 1]]) return false;
     return true;
-}
+  }
+  // 某字是否为「易错点」（多音 / 儿化 / 的地得 / 一不变调 / 轻声助词）：
+  // parText+j 为段落内位置，absJ 为全文绝对下标（erhuaOverrides / poly 按绝对下标索引）
+  function hotChar(parText, j, absJ, poly) {
+    var c = parText[j];
+    var hot = c === "一" || c === "不" || c === "的" || c === "地" || c === "得" || !!PARTICLE[c];
+    if (!hot && c === "儿" && j > 0 && HAN_RE.test(parText[j - 1]) && (isErhuaSuffix(parText, j) || erhuaOverrides[absJ])) hot = true;
+    if (!hot && poly && poly[absJ]) {
+      try { if (String(poly[absJ]).split(/\s+/).filter(Boolean).length > 1) hot = true; } catch (eHot) { /* 忽略 */ }
+    }
+    return hot;
+  }
 
   var toneSandhi = true;
   var erhuaMode = "char";
@@ -1375,9 +1535,14 @@ function pyToZhuyin(py) {
             new Function(code)();              // UMD 浏览器分支：挂到 window.OpenCC
             var OC = window.OpenCC;
             if (!OC || typeof OC.Converter !== "function") throw new Error("OpenCC missing");
+            var convCache = {};
             openCC = {
-              t2s: OC.Converter({ from: "t", to: "cn" }),
-              s2t: OC.Converter({ from: "cn", to: "t" })
+              /* 转换器按「源>目标」locale 缓存；twp / hkp = 含地区常用词汇的繁体（opencc-js v2 配置表内置 s2twp / tw2sp / s2hkp / hk2sp 等） */
+              get: function (from, to) {
+                var k = from + ">" + to;
+                if (!convCache[k]) convCache[k] = OC.Converter({ from: from, to: to });
+                return convCache[k];
+              }
             };
             resolve(openCC);
           } catch (eEval) { openCCFailed = true; resolve(null); }
@@ -1387,6 +1552,11 @@ function pyToZhuyin(py) {
   }
   /* 把输入框文本转成目标方向（"s" 简 / "t" 繁）。转换可能改变字数，
      因此转换后完整清空读音 / 分词缓存（等同重新输入），保留滚动位置无关紧要。 */
+  /* 当前繁简转换配置："t" 标准 / "tw" 台湾 / "hk" 香港（见「更多设置→繁简转换」） */
+  function ocVariant() {
+    var s = $("oc-variant");
+    return s ? s.value : "t";
+  }
   function convertInput(dir) {
     var btn = $(dir === "s" ? "btn-t2s" : "btn-s2t");
     var old = btn.textContent;
@@ -1396,8 +1566,15 @@ function pyToZhuyin(py) {
       btn.disabled = false;
       btn.textContent = old;
       if (!oc) { alert(i18nT("cv.fail", "转换引擎加载失败，请刷新页面重试。")); return; }
-      var out = dir === "s" ? oc.t2s(input.value) : oc.s2t(input.value);
-      if (out === input.value) return;     // 无变化（已是目标文字）
+      var v = ocVariant(), ph = $("oc-phrases").checked;
+      // 词汇勾选 → 用 twp / hkp（含地区词汇）locale；未勾选 → tw / hk（仅用字）
+      var pair = dir === "s"
+        ? (v === "t" ? ["t", "cn"] : v === "tw" ? [ph ? "twp" : "tw", "cn"] : [ph ? "hkp" : "hk", "cn"])
+        : (v === "t" ? ["cn", "t"] : v === "tw" ? ["cn", ph ? "twp" : "tw"] : ["cn", ph ? "hkp" : "hk"]);
+      var src = LM ? LM.text : input.value;
+      var out = oc.get(pair[0], pair[1])(src);
+      if (out === src) return;             // 无变化（已是目标文字）
+      if (LM) { enterLongMode(out); return; }   // 长文模式：转换全文后重建分块
       input.value = out;
       onTextChanged();
     });
@@ -1503,6 +1680,48 @@ function pyToZhuyin(py) {
     }
     return null;
   }
+  // ===== 「一 / 不」变调兜底 =====
+  // 引擎的变调规则只作用于「未被词典词组命中」的单字：词组（内置词典或自注册的分词词典）
+  // 命中后直接采用词条注音，而词条里的「一 / 不」多为原调（如「一小」yī xiǎo），会漏掉变调。
+  // 这里按变调规则对默认读音做二次校正，规则与引擎一致：
+  //   一：四声前读 yí，一 / 二 / 三声前读 yì；词末 / 单用、序数（第一）、后接「的而之后也还是」时保持原调；
+  //   不：四声前读 bú，其余读 bù；词末 / 单用、后接「的而之后也还地」时保持原调；
+  //   叠词中间（试一试 / 能不能）读轻声（yi / bu），但「一一」类前中后同字仍读原调。
+  var SANDHI_STOP = { "一": ["的", "而", "之", "后", "也", "还", "是"], "不": ["的", "而", "之", "后", "也", "还", "地"] };
+  function toneNumOf(r) {
+    if (!r) return -1;
+    var t = parseInt(lib.getNumOfTone(r), 10);
+    return isNaN(t) ? -1 : t;
+  }
+  // readings：段内下标 → 拼音读音（仅汉字有值）；就地修正，用户手动指定（overrides）的字不动
+  function correctSandhi(readings, parText, offset) {
+    if (!toneSandhi || !readings) return false;
+    var han = [], i;
+    for (i = 0; i < parText.length; i++) if (HAN_RE.test(parText[i]) && readings[i]) han.push(i);
+    var changed = false;
+    for (i = 0; i < han.length; i++) {
+      var idx = han[i], ch = parText[idx];
+      if (ch !== "一" && ch !== "不") continue;
+      if (offset >= 0 && overrides[offset + idx]) continue;   // 手动指定优先
+      var nextIdx = i + 1 < han.length ? han[i + 1] : -1;
+      if (nextIdx < 0) continue;                               // 词末 / 单用 → 本调
+      var prevIdx = i > 0 ? han[i - 1] : -1;
+      var nextCh = parText[nextIdx];
+      if (SANDHI_STOP[ch].indexOf(nextCh) !== -1) continue;    // 引擎例外后字 → 本调
+      if (prevIdx >= 0 && parText[prevIdx] === nextCh && parText[prevIdx] !== ch) {
+        var light = ch === "一" ? "yi" : "bu";                 // V一V / A不A 叠词中间 → 轻声
+        if (readings[idx] !== light) { readings[idx] = light; changed = true; }
+        continue;
+      }
+      var t = toneNumOf(readings[nextIdx]);
+      var exp = "";
+      if (ch === "一") exp = t === 4 ? "yí" : (t >= 1 && t <= 3 ? "yì" : "");
+      else exp = t === 4 ? "bú" : "";
+      if (exp && readings[idx] !== exp) { readings[idx] = exp; changed = true; }
+    }
+    return changed;
+  }
+
   function annotate(parText, offset) {
     var htmlStr = lib.html(parText, { toneSandhi: toneSandhi });
     // 注意：py-result-item 内部嵌套 py-chinese-item，必须匹配到 </ruby></span> 才是完整注音单元
@@ -1580,6 +1799,26 @@ function pyToZhuyin(py) {
         pp += rdLen;
       }
     }
+    // 「一 / 不」变调兜底：词典词组命中会绕过引擎变调规则，按最终生效读音二次校正
+    if (toneSandhi) {
+      var rdLoc = [];
+      for (var s1 = 0; s1 < items.length; s1++) {
+        var it1 = items[s1];
+        if (!it1.span) continue;
+        rdLoc[it1.absIdx - offset] = HAN_RE.test(it1.ch) ? (overrides[it1.absIdx] || (it1.hidden ? "" : (it1.merged || it1.twReading || it1.reading || ""))) : "";
+      }
+      if (correctSandhi(rdLoc, parText, offset)) {
+        for (var s2 = 0; s2 < items.length; s2++) {
+          var it2 = items[s2];
+          if (!it2.span || overrides[it2.absIdx]) continue;
+          var v = rdLoc[it2.absIdx - offset];
+          if (v && v !== (it2.hidden ? "" : (it2.merged || it2.twReading || it2.reading || ""))) {
+            it2.sandhiFix = v;
+            defaults[it2.absIdx] = v;
+          }
+        }
+      }
+    }
     var out = "";
     // 分词词组分组：按词边界表把相邻的字包进 .py-word，词间留空隙
     var bnd = (segScheme !== "none" && segDict) ? (curBounds[offset] || null) : null;
@@ -1598,6 +1837,9 @@ function pyToZhuyin(py) {
         item.reading = overrides[item.absIdx];
       } else if (item.hidden) {
         s = s.replace(/(<rt class="py-pinyin-item">)[^<]*(<\/rt>)/, "$1$2");
+      } else if (item.sandhiFix) {
+        s = s.replace(/(<rt class="py-pinyin-item">)[^<]*(<\/rt>)/, "$1" + esc(item.sandhiFix) + "$2");
+        item.reading = item.sandhiFix;
       } else if (item.merged) {
         s = s.replace(/(<rt class="py-pinyin-item">)[^<]*(<\/rt>)/, "$1" + esc(item.merged) + "$2");
       } else if (item.twReading) {
@@ -1627,7 +1869,9 @@ function pyToZhuyin(py) {
   // 留 7px 余量吸收行高取整误差，保证打印时一张 .paper 恰好占一张 A4。
   // 策略：段落内按实测行分组、跨段落逐行贪心装箱——当前页剩余空间放得下几行就放几行，
   // 放不下的行换页续排，避免「整段跳到下页、页尾留大片空白」。
-  var PAGE_CONTENT_W = 718, PAGE_CONTENT_H = 1048;
+  var PAGE_CONTENT_W = 718, PAGE_CONTENT_H = 1040;
+  // 注：页高上限留 14px 余量（A4 内容区 1054.5px）——打印引擎与屏幕的字体度量
+  // 存在亚像素级差异，顶满设计高度会使个别页在打印中溢出，产生整页空白的 PDF 页
 
   // 把测量段落里的顶层节点收集为「排版单元」：词组 .py-word 整体保留，
   // 跨行的词组在行界拆成单字单元；标点等间隙已由 annotate 包成 .py-gap，顶层节点全为元素
@@ -1655,13 +1899,21 @@ function pyToZhuyin(py) {
     return units;
   }
 
-  function paginate(text) {
-    var paras = text.split("\n");
-    var chunks = [], off = 0, i;
-    for (i = 0; i < paras.length; i++) {
-      if (paras[i].trim()) chunks.push({ text: paras[i], offset: off });
-      off += paras[i].length + 1;
+  function buildParas(text) {
+    var lines = text.split("\n"), out = [], off = 0, i;
+    for (i = 0; i < lines.length; i++) {
+      if (lines[i].trim()) out.push({ text: lines[i], offset: off, cont: false });
+      off += lines[i].length + 1;
     }
+    return out;
+  }
+  function paginate(text) {
+    return packParagraphs(buildParas(text));
+  }
+  // 对一组段落（含全文绝对偏移）做行测量与逐行装箱，返回本组的页 HTML 数组。
+  // 长文模式按块（约 3 万字）调用同一函数；c.cont = 超长段落切分出的续排块（段距为 0）
+  function packParagraphs(chunks) {
+    var i;
     if (!chunks.length) return [];
     // 隐藏测量容器：放进 #preview 内以继承字号 / 字体 / 间距等行内样式
     var meas = document.createElement("div");
@@ -1669,10 +1921,16 @@ function pyToZhuyin(py) {
     meas.style.cssText = "position:absolute;left:-99999px;top:0;width:" + PAGE_CONTENT_W + "px;visibility:hidden;";
     preview.appendChild(meas);
     var gap = 12, met = [];
+    // 测量期间必须临时取消预览列的 zoom（fitPagesZoom 为适配列宽所设）：
+    // zoom 会缩放测量容器内的部分布局值，使装箱行高小于真实值；打印 / 导出 PDF
+    // 时 zoom 被剥离，按真实行高渲染，于是每页内容超出物理页高、溢出成大量
+    // 近乎空白的 PDF 页。测完立即恢复，渲染端随后由 fitPagesZoom 重设。
+    var savedZoom = preview.style.zoom || "";
+    preview.style.zoom = "1";
     for (i = 0; i < chunks.length; i++) {
       var c = chunks[i];
       computeSegBounds(c.text, c.offset);   // 词组分组影响排版宽度，测量与最终渲染须一致
-      meas.innerHTML = "<p>" + annotate(c.text, c.offset) + "</p>";
+      meas.innerHTML = "<p" + (c.cont ? ' class="cont"' : "") + ">" + annotate(c.text, c.offset) + "</p>";
       var pEl = meas.firstChild;
       if (i === 0) { try { gap = parseFloat(getComputedStyle(pEl).marginBottom) || 12; } catch (eGap) {} }
       var h = pEl.offsetHeight;
@@ -1684,18 +1942,34 @@ function pyToZhuyin(py) {
         lines[lines.length - 1].units.push(units[u].html);
       }
       for (var L = 0; L < lines.length; L++) lines[L].bot = L < lines.length - 1 ? lines[L + 1].top : h;
-      met.push({ lines: lines });
+      // 行几何归一：unit 顶带「汉字在行盒内垂直居中」的系统性偏移（≈(行高-字高)/2），
+      // 而末行 bot 用的是 p 总高（行盒坐标）。两套坐标混用会使含段落末行的片段高度
+      // 少算一个偏移量，多段落时每页累计少算百余像素，打印溢出成大量空白 PDF 页。
+      // 归一到「首行行盒顶」：首行 top=0，非末行 bot = 下一行归一 top（=本行行盒底），末行 bot = p 总高。
+      if (lines.length) {
+        var top0 = lines[0].top;
+        for (var L3 = 0; L3 < lines.length; L3++) {
+          lines[L3].top -= top0;
+          lines[L3].bot = L3 < lines.length - 1 ? lines[L3 + 1].top - top0 : h;
+        }
+      }
+      met.push({ lines: lines, gapBefore: c.cont ? 0 : gap });
     }
     preview.removeChild(meas);
+    preview.style.zoom = savedZoom;
     // 逐行装箱
     var pagesArr = [], cur = null, acc = 0;
     for (i = 0; i < met.length; i++) {
       var para = met[i], idx = 0;
       while (idx < para.lines.length) {
         if (!cur) { cur = []; pagesArr.push(cur); acc = 0; }
-        var y0 = acc > 0 ? acc + gap : 0;   // 段落起始处含上一段的段后距
+        var y0 = acc > 0 ? acc + para.gapBefore : 0;   // 段落起始处含上一段的段后距
+        // 行高是相对段落开头的测量值；跨页续排时本页片段从段落第 idx 行起，
+        // 须减去首行的段落内偏移 base 换算成片段内相对高度，否则剩余页高会被
+        // 首行偏移「虚占」，导致单段落长文的第 2 页起每页只装一行
+        var base = para.lines[idx].top;
         var j = idx;
-        while (j < para.lines.length && y0 + para.lines[j].bot <= PAGE_CONTENT_H + 0.5) j++;
+        while (j < para.lines.length && y0 + para.lines[j].bot - base <= PAGE_CONTENT_H + 0.5) j++;
         if (j === idx) {
           if (acc > 0) { cur = null; continue; }   // 当前行放不下：换页续排
           j = idx + 1;                              // 兜底：空页连一行都放不下（异常）时强制放一行
@@ -1703,12 +1977,373 @@ function pyToZhuyin(py) {
         var frag = "";
         for (var L2 = idx; L2 < j; L2++) frag += para.lines[L2].units.join("");
         cur.push("<p>" + frag + "</p>");
-        acc = y0 + para.lines[j - 1].bot;
+        acc = y0 + para.lines[j - 1].bot - base;
         idx = j;
       }
     }
     return pagesArr;
   }
+
+  // ===== 长文模式（>3 万字自动进入，支持到 200 万字） =====
+  // 原理：全文切成约 3 万字 / 块（段落对齐，超长段落按句末标点切分），每块独立走
+  // 「注音 → 行测量 → 逐行装箱」管线，页 HTML 字符串缓存于内存；预览只渲染当前页，
+  // 块按需排版（后台逐块推进 + 进度条）；打印改为按页码范围 / 分批（打印 DOM 不再
+  // 一次性装下全部页——这正是旧版 3 万字上限的技术根因）。
+  var LONG_START = 30000, LONG_CHUNK = 30000, LONG_MAX = 2000000, PRINT_BATCH = 100;
+  var LM = null;
+  function lmStyleStamp() {
+    return [$("fontsize").value, $("fontfamily").value, $("pyfont").value, $("chargap").value,
+      $("lineh").value, $("paragap").value, $("show-py").checked ? 1 : 0, $("hi-toggle").checked ? 1 : 0,
+      toneSandhi ? 1 : 0, erhuaMode, segScheme, phonetic, zyDir, twStd ? 1 : 0].join("|");
+  }
+  // 超长段落切分：优先在句末标点处断开；cont=1 的续排块段距为 0（CSS p.cont 配合）
+  function lmSplitParas(paras) {
+    var out = [], PUNC = "。！？；…！？；", i, p;
+    for (i = 0; i < paras.length; i++) {
+      p = paras[i];
+      if (p.text.length <= LONG_CHUNK * 1.5) { out.push(p); continue; }
+      var s = 0;
+      while (s < p.text.length) {
+        var e = Math.min(s + LONG_CHUNK, p.text.length);
+        if (e < p.text.length) {
+          var cut = -1, k;
+          for (k = e; k >= Math.max(s + 200, e - 300); k--) {
+            if (PUNC.indexOf(p.text[k - 1]) >= 0) { cut = k; break; }
+          }
+          if (cut > 0) e = cut;
+        }
+        out.push({ text: p.text.slice(s, e), offset: p.offset + s, cont: s > 0 });
+        s = e;
+      }
+    }
+    return out;
+  }
+  function lmBuildChunks(text) {
+    var paras = lmSplitParas(buildParas(text));
+    var chunks = [], cur = [], len = 0, i;
+    for (i = 0; i < paras.length; i++) {
+      if (len && len + paras[i].text.length > LONG_CHUNK) { chunks.push({ paras: cur }); cur = []; len = 0; }
+      cur.push(paras[i]); len += paras[i].text.length;
+    }
+    if (cur.length) chunks.push({ paras: cur });
+    for (i = 0; i < chunks.length; i++) {
+      chunks[i].c0 = chunks[i].paras[0].offset;
+      chunks[i].c1 = chunks[i].paras[chunks[i].paras.length - 1].offset + chunks[i].paras[chunks[i].paras.length - 1].text.length;
+    }
+    return chunks;
+  }
+  function lmWrapOverrides() {
+    function wrap(obj) {
+      if (obj && obj.__lm) return obj;
+      var pr = new Proxy(obj, {
+        get: function (t, k) { if (k === "__lm") return true; return t[k]; },
+        set: function (t, k, v) { t[k] = v; lmDirtyIdx(Number(k)); return true; },
+        deleteProperty: function (t, k) { delete t[k]; lmDirtyIdx(Number(k)); return true; }
+      });
+      return pr;
+    }
+    overrides = wrap(overrides); segOverrides = wrap(segOverrides); erhuaOverrides = wrap(erhuaOverrides);
+  }
+  function lmDirtyIdx(idx) {
+    if (!LM || isNaN(idx)) return;
+    for (var i = 0; i < LM.chunks.length; i++) {
+      if (idx >= LM.chunks[i].c0 && idx < LM.chunks[i].c1) {
+        if (LM.chunkPages[i]) LM.dirty[i] = 1;   // 已排版块标脏，由排版循环就地重排
+        return;
+      }
+    }
+  }
+  function lmRecomputePrefix() {
+    LM.pageStart[0] = 0;
+    for (var i = 0; i < LM.chunks.length; i++) {
+      LM.pageStart[i + 1] = LM.chunkPages[i] ? LM.pageStart[i] + LM.chunkPages[i].length : LM.pageStart[i];
+      if (!LM.chunkPages[i]) { LM.done = i; return; }
+    }
+    LM.done = LM.chunks.length;
+  }
+  function lmProcessChunk(ci) {
+    var ch = LM.chunks[ci], prevCount = LM.chunkPages[ci] ? LM.chunkPages[ci].length : -1;
+    curBounds = {};
+    if ($("hi-toggle").checked) {
+      if (!hiSet) hiSet = {};
+      for (var pi = 0; pi < ch.paras.length; pi++) {
+        var par = ch.paras[pi], poly = null;
+        try { poly = lib.polyphonic(par.text); } catch (ePoly2) { poly = null; }
+        for (var j = 0; j < par.text.length; j++) {
+          if (hotChar(par.text, j, par.offset + j, poly)) hiSet[par.offset + j] = 1;
+        }
+      }
+    }
+    LM.chunkPages[ci] = packParagraphs(ch.paras);
+    if (prevCount >= 0 && LM.chunkPages[ci].length !== prevCount) {
+      // 重排后页数变化（极罕见）：后续块页码全部失效，退回未排版状态
+      for (var k2 = ci + 1; k2 < LM.chunks.length; k2++) LM.chunkPages[k2] = null;
+    }
+    lmRecomputePrefix();
+    var chars = 0;
+    for (var k3 = 0; k3 < ch.paras.length; k3++) chars += ch.paras[k3].text.length;
+    LM.procChars = (LM.procChars || 0) + (prevCount < 0 ? chars : 0);
+    LM.est = Math.max(LM.pageStart[LM.done], Math.ceil(LM.total * LM.pageStart[LM.done] / Math.max(1, LM.procChars)));
+  }
+  function lmStep(wanted) {
+    return function () {
+      if (!LM) return false;
+      for (var i = 0; i < LM.done; i++) {
+        if (LM.dirty[i]) { LM.dirty[i] = 0; lmProcessChunk(i); lmAfterChunk(); return true; }
+      }
+      var avail = LM.pageStart[LM.done];
+      if (LM.done >= LM.chunks.length) return false;
+      if (wanted != null && avail >= wanted) return false;
+      lmProcessChunk(LM.done);   // 内部 lmRecomputePrefix 会把 done 推进到下一个未排版块
+      lmAfterChunk();
+      return true;
+    };
+  }
+  function lmRun(stepsFn) {
+    if (!LM) return Promise.resolve();
+    var task = function () {
+      return new Promise(function (res) {
+        setTimeout(function () {
+          if (!LM) { res(); return; }
+          if (stepsFn()) { task().then(res); } else { res(); }
+        }, 0);
+      });
+    };
+    LM.chain = (LM.chain || Promise.resolve()).then(task, task);
+    return LM.chain;
+  }
+  function lmHasWork() {
+    if (!LM) return false;
+    if (LM.done < LM.chunks.length) return true;
+    for (var i = 0; i < LM.done; i++) if (LM.dirty[i]) return true;
+    return false;
+  }
+  function lmEnsure(wanted) {
+    return lmRun(lmStep(wanted)).then(function () { if (LM) lmRenderView(); });
+  }
+  function lmPump() {
+    if (!lmHasWork()) return;   // 全部排完且无脏块时不再排队，避免空转重渲染
+    lmRun(lmStep(null)).then(function () { if (LM) lmRenderView(); });
+  }
+  function lmAfterChunk() {
+    lmUpdateBanner();
+    // 当页恰好排好 → 立即刷新；否则只更新页码标签
+    if (curPage < LM.pageStart[LM.done]) lmRenderView();
+    else lmLabel();
+  }
+  function lmTotalNav() {
+    if (!LM) return pages.length;
+    var avail = LM.pageStart[LM.done];
+    return LM.done >= LM.chunks.length ? avail : Math.max(avail, LM.est);
+  }
+  function lmLabel() {
+    var avail = LM.pageStart[LM.done], allDone = LM.done >= LM.chunks.length;
+    var total = allDone ? avail : Math.max(avail, LM.est);
+    pgLabel.textContent = allDone
+      ? i18nT("u.page", "{a} / {b} 页").replace("{a}", curPage + 1).replace("{b}", avail)
+      : i18nT("u.pageEst", "{a} / 约 {b} 页").replace("{a}", curPage + 1).replace("{b}", total);
+  }
+  function lmUpdateBanner() {
+    if (!LM) return;
+    var pct = Math.round(100 * LM.done / LM.chunks.length);
+    $("lm-bar-fill").style.width = pct + "%";
+    var txt = LM.done >= LM.chunks.length
+      ? i18nT("lm.done", "长文模式：共 {n} 字 · 共 {p} 页").replace("{n}", LM.total.toLocaleString()).replace("{p}", LM.pageStart[LM.done])
+      : i18nT("lm.prog", "长文模式：共 {n} 字 · 已排版 {p} 页（预计约 {e} 页）").replace("{n}", LM.total.toLocaleString()).replace("{p}", LM.pageStart[LM.done]).replace("{e}", Math.max(LM.est, LM.pageStart[LM.done]));
+    $("lm-text").textContent = txt;
+  }
+  function lmPaint() {
+    var avail = LM.pageStart[LM.done];
+    var base = -1, lp = 0;
+    if (curPage < avail) {
+      for (var i = LM.done - 1; i >= 0; i--) {
+        if (curPage >= LM.pageStart[i]) { base = i; lp = curPage - LM.pageStart[i]; break; }
+      }
+    }
+    if (base >= 0) {
+      preview.innerHTML = '<div class="paper"><div class="pg-content">' + LM.chunkPages[base][lp] + "</div></div>";
+    } else {
+      preview.innerHTML = '<div class="paper"><div class="pg-content"><p class="lm-wait">' + esc(i18nT("lm.wait", "正在排版，请稍候…")) + "</p></div></div>";
+    }
+    printArea.innerHTML = "";   // 长文模式打印 DOM 在打印时按范围填充
+    lmLabel();
+    lmUpdateBanner();
+    fitPagesZoom();
+    syncPrintStyle();
+  }
+  function lmRenderView() {
+    var st = lmStyleStamp();
+    if (LM.stamp !== st) {
+      LM.stamp = st;
+      LM.chunkPages.fill(null); LM.done = 0; LM.dirty = {}; LM.procChars = 0; LM.pageStart = [0];
+      hiSet = $("hi-toggle").checked ? {} : null;
+      LM.est = Math.ceil(LM.total / 550);
+    }
+    lmWrapOverrides();          // onReadingsChanged 等路径会整体替换 overrides 对象
+    count.textContent = i18nT("u.chars", "{n} 字").replace("{n}", LM.total.toLocaleString()) + i18nT("lm.tag", "（长文模式）");
+    limitTip.style.display = "none";
+    pageNav.classList.remove("scroll-mode");
+    var avail = LM.pageStart[LM.done], allDone = LM.done >= LM.chunks.length;
+    if (allDone && curPage >= avail) curPage = Math.max(0, avail - 1);
+    if (curPage < 0) curPage = 0;
+    lmPaint();
+    if (curPage >= avail) lmEnsure(curPage + 1);
+    lmPump();
+  }
+  function enterLongMode(text) {
+    var clipped = false;
+    if (text.length > LONG_MAX) { text = text.slice(0, LONG_MAX); clipped = true; }
+    LM = {
+      text: text, total: text.replace(/\s/g, "").length,
+      chunks: lmBuildChunks(text),
+      chunkPages: null, pageStart: [0], done: 0, dirty: {},
+      procChars: 0, est: 0, stamp: null, chain: Promise.resolve()
+    };
+    LM.chunkPages = new Array(LM.chunks.length).fill(null);
+    LM.est = Math.ceil(LM.total / 550);
+    overrides = {}; defaults = []; segOverrides = {}; erhuaOverrides = {}; curBounds = {};
+    lmWrapOverrides();
+    curPage = 0;
+    input.readOnly = true;
+    var excerpt = text.slice(0, 800) + (text.length > 800 ? "\n\n…" + i18nT("lm.excerpt", "（长文模式：全文 {n} 字已载入，点击下方「退出长文模式」可恢复编辑）").replace("{n}", text.length.toLocaleString()) : "");
+    input.value = excerpt;
+    LM.excerpt = input.value;
+    mode = "page";
+    syncModeButtons("page");
+    $("mode-scroll").disabled = true; $("nav-mode-scroll").disabled = true;
+    $("lm-banner").hidden = false;
+    if (clipped) alert(i18nT("lm.max", "单次最多支持 200 万字，已只载入前 200 万字。"));
+    renderView();
+  }
+  function exitLongMode() {
+    if (!LM) return;
+    LM = null;
+    input.readOnly = false;
+    $("lm-banner").hidden = true;
+    $("mode-scroll").disabled = false; $("nav-mode-scroll").disabled = false;
+    overrides = {}; defaults = []; segOverrides = {}; erhuaOverrides = {}; curBounds = {};
+    curPage = 0;
+  }
+  $("lm-exit").addEventListener("click", function () {
+    exitLongMode();
+    input.value = "";
+    renderView();
+  });
+
+  // —— 长文模式打印：范围 / 分批全书 / PDF 合并 ——
+  function lmPrintRange(a, b) {
+    var parts = [];
+    for (var ci = 0; ci < LM.chunks.length; ci++) {
+      if (!LM.chunkPages[ci]) break;
+      var s0 = LM.pageStart[ci], len = LM.chunkPages[ci].length;
+      for (var lp = 0; lp < len; lp++) {
+        var g = s0 + lp;   // 全局页号（0 基）
+        if (g >= a - 1 && g <= b - 1) parts.push('<div class="paper"><div class="pg-content">' + LM.chunkPages[ci][lp] + "</div></div>");
+      }
+    }
+    printArea.innerHTML = parts.join("");
+    syncPrintStyle();
+    window.print();
+  }
+  function loadPdfLib() {
+    if (window.PDFLib) return Promise.resolve();
+    var urls = ["https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",
+      "https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"];
+    return new Promise(function (res, rej) {
+      var i = 0;
+      (function tryNext() {
+        if (i >= urls.length) { rej(); return; }
+        var s = document.createElement("script");
+        s.src = urls[i++];
+        s.onload = function () { res(); };
+        s.onerror = tryNext;
+        document.head.appendChild(s);
+      })();
+    });
+  }
+  function pdStatus(msg) { $("pd-status").textContent = msg || ""; }
+  function lmOpenPrintDlg() {
+    $("pd-from").value = curPage + 1;
+    $("pd-to").value = Math.min(curPage + PRINT_BATCH, lmTotalNav());
+    pdStatus("");
+    $("print-dlg").hidden = false;
+  }
+  function lmClosePrintDlg() { $("print-dlg").hidden = true; }
+  $("btn-print").addEventListener("click", function () {
+    if (LM) lmOpenPrintDlg();
+    else window.print();
+  });
+  $("pd-cancel").addEventListener("click", lmClosePrintDlg);
+  $("pd-mask").addEventListener("click", lmClosePrintDlg);
+  $("pd-go").addEventListener("click", function () {
+    var a = parseInt($("pd-from").value, 10), b = parseInt($("pd-to").value, 10);
+    var n = lmTotalNav();
+    if (!(a >= 1 && b >= a && b <= n)) { pdStatus(i18nT("pd.errRange", "页码范围无效")); return; }
+    pdStatus(i18nT("pd.prep", "正在排版所选页…"));
+    lmEnsure(b).then(function () {
+      if (!LM) return;
+      pdStatus(i18nT("pd.saving", "即将打印第 {a}–{b} 页，请在打印对话框中选择「另存为 PDF」。").replace("{a}", a).replace("{b}", b));
+      setTimeout(function () { lmPrintRange(a, b); }, 60);
+    });
+  });
+  $("pd-all").addEventListener("click", function () {
+    var btn = this;
+    btn.disabled = true;
+    pdStatus(i18nT("pd.prepAll", "正在排版全书，视文章长度可能需要一些时间…"));
+    lmEnsure(1 / 0).then(function () {
+      btn.disabled = false;
+      if (!LM) return;
+      var n = LM.pageStart[LM.done], batch = 0;
+      (function nextBatch() {
+        if (!LM || batch * PRINT_BATCH >= n) { pdStatus(""); return; }
+        var a = batch * PRINT_BATCH + 1, b = Math.min((batch + 1) * PRINT_BATCH, n);
+        batch++;
+        pdStatus(i18nT("pd.batch", "即将打印第 {a}–{b} 页（第 {i} / {m} 批），保存后自动继续。").replace("{a}", a).replace("{b}", b).replace("{i}", batch).replace("{m}", Math.ceil(n / PRINT_BATCH)));
+        setTimeout(function () {
+          lmPrintRange(a, b);
+          setTimeout(nextBatch, 200);   // 打印对话框关闭（已保存 / 取消）后自动弹出下一批
+        }, 60);
+      })();
+    });
+  });
+  $("pd-merge").addEventListener("click", function () { $("pd-files").click(); });
+  $("pd-files").addEventListener("change", function () {
+    var files = Array.prototype.slice.call(this.files);
+    this.value = "";
+    if (!files.length) return;
+    files.sort(function (x, y) { return x.name.localeCompare(y.name, undefined, { numeric: true }); });
+    pdStatus(i18nT("pd.merging", "正在合并 {n} 个 PDF…").replace("{n}", files.length));
+    loadPdfLib().then(function () {
+      var PDFDocument = window.PDFLib.PDFDocument;
+      var out = null;
+      var chain = Promise.resolve();
+      files.forEach(function (f) {
+        chain = chain.then(function () {
+          return f.arrayBuffer().then(function (buf) {
+            return PDFDocument.load(buf, { ignoreEncryption: true });
+          }).then(function (src) {
+            if (!out) out = PDFDocument.create();
+            return out.copyPages(src, src.getPageIndices()).then(function (pgs) {
+              pgs.forEach(function (pg) { out.addPage(pg); });
+            });
+          });
+        });
+      });
+      return chain.then(function () {
+        return out.save();
+      }).then(function (bytes) {
+        var blob = new Blob([bytes], { type: "application/pdf" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "merged.pdf";
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+        pdStatus(i18nT("pd.merged", "已合并 {n} 个 PDF，开始下载 merged.pdf。").replace("{n}", files.length));
+      });
+    }).catch(function (e) {
+      pdStatus(i18nT("pd.mergeFail", "合并失败：请确认已联网（首次需加载合并组件）且所选文件为 PDF。"));
+    });
+  });
 
   // 计算一个段落的词边界表（含手动断词 / 合词覆盖）
   function computeSegBounds(parText, offset) {
@@ -1731,6 +2366,17 @@ function pyToZhuyin(py) {
   }
 
   function renderView() {
+    /* 长文模式入口：粘贴 / 导入超 3 万字自动转入；长文状态下输入框被替换为摘要，
+       若检测到输入框内容与摘要不符（清空 / 换新文件），视情况退出或重入长文模式 */
+    var rawCheck = input.value.replace(/\r\n?/g, "\n");
+    if (LM && rawCheck !== LM.excerpt) {
+      if (rawCheck.length > LONG_START) { enterLongMode(rawCheck); return; }
+      exitLongMode();
+    } else if (!LM && rawCheck.length > LONG_START) {
+      enterLongMode(rawCheck);
+      return;
+    }
+    if (LM) { lmRenderView(); return; }
     var text = input.value.replace(/\r\n?/g, "\n");
     var total = text.replace(/\s/g, "").length;
     var clipped = false;
@@ -1744,13 +2390,7 @@ function pyToZhuyin(py) {
       var poly = null;
       try { poly = lib.polyphonic(text); } catch (ePoly) { poly = null; }
       for (var hi = 0; hi < text.length; hi++) {
-        var c = text[hi];
-        var hot = c === "一" || c === "不" || c === "的" || c === "地" || c === "得" || !!PARTICLE[c];
-        if (!hot && c === "儿" && hi > 0 && HAN_RE.test(text[hi - 1]) && (isErhuaSuffix(text, hi) || erhuaOverrides[hi])) hot = true;
-        if (!hot && poly && poly[hi]) {
-          try { if (String(poly[hi]).split(/\s+/).filter(Boolean).length > 1) hot = true; } catch (eP2) { /* 忽略 */ }
-        }
-        if (hot) hiSet[hi] = 1;
+        if (hotChar(text, hi, hi, poly)) hiSet[hi] = 1;
       }
     }
     var reading = document.body.classList.contains("reading-mode");
@@ -1899,6 +2539,12 @@ function pyToZhuyin(py) {
       if (poly && poly[idx]) alts = poly[idx].split(/\s+/).filter(Boolean);
     } catch (e) { alts = []; }
     if (reading && alts.indexOf(reading) === -1) alts.unshift(reading);
+    // 「一 / 不」：引擎多音字数据只登记原调（yī / bù），补全变调候选供手动指定
+    if (hanChar === "一") {
+      ["yī", "yí", "yì"].forEach(function (r) { if (alts.indexOf(r) === -1) alts.push(r); });
+    } else if (hanChar === "不") {
+      ["bù", "bú"].forEach(function (r) { if (alts.indexOf(r) === -1) alts.push(r); });
+    }
     if (twRd && alts.indexOf(twRd) === -1) alts.push(twRd); // 台湾读音也进候选
     var particle = PARTICLE[hanChar];
     if (particle && alts.indexOf(particle) === -1) alts.push(particle);
@@ -1998,9 +2644,20 @@ function pyToZhuyin(py) {
   // 简↔繁转换（仅内嵌 OpenCC 的版本显示：zhuyin / plus）
   $("btn-t2s").addEventListener("click", function () { convertInput("s"); });
   $("btn-s2t").addEventListener("click", function () { convertInput("t"); });
+  /* 「同时转换常用词汇」仅对台湾 / 香港繁体有意义（标准繁体配置不含地区词汇层），无效时禁用 */
+  function syncOcPhrases() {
+    var box = $("oc-phrases");
+    box.disabled = ocVariant() === "t";
+    box.parentNode.title = box.disabled ? i18nT("ocv.tdis", "「标准繁体」转换不涉及地区词汇，此选项无效") : i18nT("ck.ocph.tip", "同时把地区常用词一并转换（鼠标→滑鼠、软件→軟體等）");
+  }
   if (window.__VARIANT && window.__VARIANT.opencc && OPENCC_B64) {
+    $("oc-row").style.display = "";
     $("btn-t2s").style.display = "";
     $("btn-s2t").style.display = "";
+    $("oc-phrases-ctl").style.display = "";
+    $("oc-variant-ctl").style.display = "";
+    $("oc-variant").addEventListener("change", syncOcPhrases);
+    syncOcPhrases();
   }
 
 
@@ -2580,6 +3237,10 @@ function pyToZhuyin(py) {
     setZyDir("h");
     // 读音标准：恢复大陆读音
     setTwStd(false);
+    // 简繁转换：恢复简体 ⇆ 标准繁体、不转词汇
+    $("oc-variant").value = "t";
+    $("oc-phrases").checked = false;
+    syncOcPhrases();
     // 翻页方式（预览分页 / 连续滚动）
     setMode("page");
     curPage = 0;
@@ -2610,7 +3271,9 @@ function pyToZhuyin(py) {
       seg: segScheme,
       ph: phonetic,
       zydir: zyDir,
-      tw: twStd
+      tw: twStd,
+      ocv: ocVariant(),
+      ocp: $("oc-phrases").checked
     };
     try {
       localStorage.setItem(STYLE_KEY, JSON.stringify(data));
@@ -2690,6 +3353,10 @@ function pyToZhuyin(py) {
     // 读音标准（台湾读音差异表为懒加载，恢复后异步重渲染）
     if (saved.tw === true || saved.tw === false) setTwStd(saved.tw);
     else if (window.__VARIANT && window.__VARIANT.tw) setTwStd(true);                // zhuyin 版默认台湾读音
+    // 简繁转换类型与词汇开关（仅内嵌 OpenCC 的版本有这两个控件）
+    if (saved.ocv === "t" || saved.ocv === "tw" || saved.ocv === "hk") $("oc-variant").value = saved.ocv;
+    if (typeof saved.ocp === "boolean") $("oc-phrases").checked = saved.ocp;
+    if (window.__VARIANT && window.__VARIANT.opencc && OPENCC_B64) syncOcPhrases();
   }
   // 翻页方式切换：侧栏与阅读模式翻页栏两组按钮联动
   function syncModeButtons(m) {
@@ -2754,7 +3421,7 @@ function pyToZhuyin(py) {
     if (curPage > 0) { curPage--; renderView(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   });
   $("pg-next").addEventListener("click", function () {
-    if (curPage < pages.length - 1) { curPage++; renderView(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    if (curPage < lmTotalNav() - 1) { curPage++; renderView(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   });
 
   // —— 拼音引擎：版本显示与上游更新（zh-lx/pinyin-pro） ——
@@ -2848,7 +3515,7 @@ function pyToZhuyin(py) {
   });
 
 
-  $("btn-print").addEventListener("click", function () { window.print(); });
+  // 「打印 / 导出 PDF」：普通模式直接打印；长文模式打开范围 / 分批对话框（见 lmOpenPrintDlg）
 
   // —— 四种复制格式：富文本（Word）/ HTML ruby 标签 / 字「拼音」对照 / 只复制拼音 ——
   // 拼音音节之后的收尾字符是否为字母（用于决定要不要在下一个词组拼音前补空格）
@@ -2857,7 +3524,7 @@ function pyToZhuyin(py) {
      如站点域名或路径不同，改这里即可） */
   var ZY_CSS_URL = "https://pinyin-annotator.tjsky.net/zhuyin.css";
   function buildCopyData() {
-    var text = input.value.replace(/\r\n?/g, "\n");
+    var text = (LM ? LM.text : input.value).replace(/\r\n?/g, "\n");
     if (text.length > MAX_RENDER) text = text.slice(0, MAX_RENDER);
     var paras = text.split("\n");
     var wordParts = [], rubyParts = [], pairParts = [], pyParts = [], webParts = [];
@@ -2914,6 +3581,8 @@ function pyToZhuyin(py) {
           rd[ci] = "";
         }
       }
+      // 2.5) 「一 / 不」变调兜底：词典词组命中会绕过引擎变调规则（与预览 annotate 一致）
+      correctSandhi(rd, par, offset);
       // 3) 生成五种格式（ruby 格式保持词组分组；py 格式只取拼音、保留标点）
       var wInner = "", rubyLine = "", pairLine = "", pyLine = "", webInner = "";
       var pos2 = 0;
@@ -3067,9 +3736,9 @@ function pyToZhuyin(py) {
       if (document.body.classList.contains("reading-mode")) exitReadingMode();
       return;
     }
-    if (mode !== "page" || !pages.length) return;
+    if (mode !== "page" || !(LM ? lmTotalNav() : pages.length)) return;
     if (ev.key === "ArrowLeft" && curPage > 0) { curPage--; renderView(); }
-    else if (ev.key === "ArrowRight" && curPage < pages.length - 1) { curPage++; renderView(); }
+    else if (ev.key === "ArrowRight" && curPage < lmTotalNav() - 1) { curPage++; renderView(); }
   });
 
   var SAMPLE_TEXT = "小蚂蚁搬家（示例文章）\n天要下雨了，小蚂蚁们排着长长的队伍往高处搬家。\n一只小蚂蚁背着一粒大豆子，走得慢极了。小蚂蚁可儿说：“大家不要着急，一步一步走，就一定能到家。”\n雨点落下来的时候，它们正好钻进了新家。可儿的妈妈端出一小盘点心，让大家歇一会儿，小蚂蚁们高兴地喊：“我们成功啦”";
