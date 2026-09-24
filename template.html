@@ -1506,48 +1506,6 @@ function applyI18n() {
     }
     return null;
   }
-  // ===== 「一 / 不」变调兜底 =====
-  // 引擎的变调规则只作用于「未被词典词组命中」的单字：词组（内置词典或自注册的分词词典）
-  // 命中后直接采用词条注音，而词条里的「一 / 不」多为原调（如「一小」yī xiǎo），会漏掉变调。
-  // 这里按变调规则对默认读音做二次校正，规则与引擎一致：
-  //   一：四声前读 yí，一 / 二 / 三声前读 yì；词末 / 单用、序数（第一）、后接「的而之后也还是」时保持原调；
-  //   不：四声前读 bú，其余读 bù；词末 / 单用、后接「的而之后也还地」时保持原调；
-  //   叠词中间（试一试 / 能不能）读轻声（yi / bu），但「一一」类前中后同字仍读原调。
-  var SANDHI_STOP = { "一": ["的", "而", "之", "后", "也", "还", "是"], "不": ["的", "而", "之", "后", "也", "还", "地"] };
-  function toneNumOf(r) {
-    if (!r) return -1;
-    var t = parseInt(lib.getNumOfTone(r), 10);
-    return isNaN(t) ? -1 : t;
-  }
-  // readings：段内下标 → 拼音读音（仅汉字有值）；就地修正，用户手动指定（overrides）的字不动
-  function correctSandhi(readings, parText, offset) {
-    if (!toneSandhi || !readings) return false;
-    var han = [], i;
-    for (i = 0; i < parText.length; i++) if (HAN_RE.test(parText[i]) && readings[i]) han.push(i);
-    var changed = false;
-    for (i = 0; i < han.length; i++) {
-      var idx = han[i], ch = parText[idx];
-      if (ch !== "一" && ch !== "不") continue;
-      if (offset >= 0 && overrides[offset + idx]) continue;   // 手动指定优先
-      var nextIdx = i + 1 < han.length ? han[i + 1] : -1;
-      if (nextIdx < 0) continue;                               // 词末 / 单用 → 本调
-      var prevIdx = i > 0 ? han[i - 1] : -1;
-      var nextCh = parText[nextIdx];
-      if (SANDHI_STOP[ch].indexOf(nextCh) !== -1) continue;    // 引擎例外后字 → 本调
-      if (prevIdx >= 0 && parText[prevIdx] === nextCh && parText[prevIdx] !== ch) {
-        var light = ch === "一" ? "yi" : "bu";                 // V一V / A不A 叠词中间 → 轻声
-        if (readings[idx] !== light) { readings[idx] = light; changed = true; }
-        continue;
-      }
-      var t = toneNumOf(readings[nextIdx]);
-      var exp = "";
-      if (ch === "一") exp = t === 4 ? "yí" : (t >= 1 && t <= 3 ? "yì" : "");
-      else exp = t === 4 ? "bú" : "";
-      if (exp && readings[idx] !== exp) { readings[idx] = exp; changed = true; }
-    }
-    return changed;
-  }
-
   function annotate(parText, offset) {
     var htmlStr = lib.html(parText, { toneSandhi: toneSandhi });
     // 注意：py-result-item 内部嵌套 py-chinese-item，必须匹配到 </ruby></span> 才是完整注音单元
@@ -1625,26 +1583,6 @@ function applyI18n() {
         pp += rdLen;
       }
     }
-    // 「一 / 不」变调兜底：词典词组命中会绕过引擎变调规则，按最终生效读音二次校正
-    if (toneSandhi) {
-      var rdLoc = [];
-      for (var s1 = 0; s1 < items.length; s1++) {
-        var it1 = items[s1];
-        if (!it1.span) continue;
-        rdLoc[it1.absIdx - offset] = HAN_RE.test(it1.ch) ? (overrides[it1.absIdx] || (it1.hidden ? "" : (it1.merged || it1.twReading || it1.reading || ""))) : "";
-      }
-      if (correctSandhi(rdLoc, parText, offset)) {
-        for (var s2 = 0; s2 < items.length; s2++) {
-          var it2 = items[s2];
-          if (!it2.span || overrides[it2.absIdx]) continue;
-          var v = rdLoc[it2.absIdx - offset];
-          if (v && v !== (it2.hidden ? "" : (it2.merged || it2.twReading || it2.reading || ""))) {
-            it2.sandhiFix = v;
-            defaults[it2.absIdx] = v;
-          }
-        }
-      }
-    }
     var out = "";
     // 分词词组分组：按词边界表把相邻的字包进 .py-word，词间留空隙
     var bnd = (segScheme !== "none" && segDict) ? (curBounds[offset] || null) : null;
@@ -1663,9 +1601,6 @@ function applyI18n() {
         item.reading = overrides[item.absIdx];
       } else if (item.hidden) {
         s = s.replace(/(<rt class="py-pinyin-item">)[^<]*(<\/rt>)/, "$1$2");
-      } else if (item.sandhiFix) {
-        s = s.replace(/(<rt class="py-pinyin-item">)[^<]*(<\/rt>)/, "$1" + esc(item.sandhiFix) + "$2");
-        item.reading = item.sandhiFix;
       } else if (item.merged) {
         s = s.replace(/(<rt class="py-pinyin-item">)[^<]*(<\/rt>)/, "$1" + esc(item.merged) + "$2");
       } else if (item.twReading) {
@@ -3407,8 +3342,6 @@ function applyI18n() {
           rd[ci] = "";
         }
       }
-      // 2.5) 「一 / 不」变调兜底：词典词组命中会绕过引擎变调规则（与预览 annotate 一致）
-      correctSandhi(rd, par, offset);
       // 3) 生成五种格式（ruby 格式保持词组分组；py 格式只取拼音、保留标点）
       var wInner = "", rubyLine = "", pairLine = "", pyLine = "", webInner = "";
       var pos2 = 0;
