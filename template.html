@@ -1250,7 +1250,10 @@ function applyI18n() {
     "认真地": "rèn zhēn de", "大声地": "dà shēng de", "小心地": "xiǎo xīn de",
     "仔细地": "zǐ xì de", "安静地": "ān jìng de", "飞快地": "fēi kuài de",
     "高兴得": "gāo xìng de", "走得": "zǒu de", "跑得": "pǎo de",
-    "玩得": "wán de", "笑得": "xiào de", "写得": "xiě de", "做得": "zuò de"
+    "玩得": "wán de", "笑得": "xiào de", "写得": "xiě de", "做得": "zuò de",
+    /* 「一会儿」的「会」实读轻声，口语实际读音「一」为 yì（《现汉》主注 yí·huìr 之外又读 yì huǐr）；
+       标原调模式不受影响——引擎 toneSandhi:false 时自动把 custom/词典里的「一 / 不」归回 yī / bù */
+    "一会儿": "yì huì er", "不一会儿": "bù yì huì er", "多一会儿": "duō yì huì er"
   };
   try { lib.customPinyin(CUSTOM_DICT); } catch (e) { /* 词典加载失败不影响主流程 */ }
 
