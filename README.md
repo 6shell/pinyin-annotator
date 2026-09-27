@@ -195,6 +195,15 @@
 - [x] 繁简转换时常用词汇未正确转换：如鼠标→滑鼠、软件→軟體、打印→列印
 
 
+
+## Star History
+
+<a href="https://github.com/tjsky/pinyin-annotator/tree/star-history">
+  <img alt="Star History Chart"
+       src="https://raw.githubusercontent.com/tjsky/pinyin-annotator/star-history/star-history.svg" />
+</a>
+
+
 ## License
 
 [MIT](LICENSE)
