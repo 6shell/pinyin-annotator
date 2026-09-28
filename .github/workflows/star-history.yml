@@ -2,7 +2,7 @@ name: Update Star History
 
 on:
   schedule:
-    # 每隔3个小时运行一次
+    # 每隔4个小时运行一次
     - cron: "17 */4 * * *"
   workflow_dispatch: # 允许在 Actions 页面手动触发
 
