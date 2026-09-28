@@ -2,8 +2,8 @@ name: Update Star History
 
 on:
   schedule:
-    # 每天 01:17 UTC（北京时间 09:17），避开整点降低 Actions 高峰延迟
-    - cron: "17 1 * * *"
+    # 每隔3个小时运行一次
+    - cron: "17 */4 * * *"
   workflow_dispatch: # 允许在 Actions 页面手动触发
 
 permissions:
