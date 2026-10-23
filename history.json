@@ -1,6 +1,6 @@
 {
   "repository": "6shell/pinyin-annotator",
-  "updated": "2026-10-22",
+  "updated": "2026-10-23",
   "points": [
     {
       "date": "2026-09-28",
@@ -100,6 +100,10 @@
     },
     {
       "date": "2026-10-22",
+      "stars": 0
+    },
+    {
+      "date": "2026-10-23",
       "stars": 0
     }
   ]
