@@ -1,0 +1,109 @@
+name: Build & Deploy
+
+# main = 源码真相源（template.html + 构建依赖）。
+# push main → 构建五个发布页 → 机器托管 force-push 到 dist 分支（GitHub Pages / Cloudflare Pages / Vercel 的生产分支，禁止手工编辑）。
+# push tag v* → 同样构建 → 打包 zip 发布到 GitHub Releases。
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-dist
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2" # 与维护者本地完全一致，保证 zlib 压缩字节稳定、产物可逐字节复现
+
+      - name: Build four release pages
+        run: node build.js
+
+      - name: Assemble dist
+        run: |
+          mkdir -p dist
+          cp index.html main.html zhuyin.css dist/
+          cp mini.html pinyin.html plus.html zhuyin.html jyutping.html dist/
+          cp .github/dist-readme.md dist/README.md
+          touch dist/.nojekyll
+
+      # 访问统计只注入 dist 分支（三个平台在线部署的地方）。
+      # Release zip 由下面的 release job 从仓库根目录的文件打包，天然不含统计代码。
+      # 未配置 vars.UMAMI_WEBSITE_ID 时脚本直接跳过——fork 后 Variables 不会跟过去，
+      # 所以别人自部署不会把数据打到本仓库的 Umami 上。
+      - name: Inject analytics (dist only)
+        env:
+          UMAMI_WEBSITE_ID: ${{ vars.UMAMI_WEBSITE_ID }}
+          UMAMI_SCRIPT_URL: ${{ vars.UMAMI_SCRIPT_URL }}
+        run: node inject-analytics.js dist
+
+      - name: Push dist branch (force, machine-managed)
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd dist
+          git init -q -b dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Build artifacts from ${GITHUB_SHA}"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git describe 需要完整 tag 历史，才能算出上一版
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+
+      - name: Build four release pages
+        run: node build.js
+
+      - name: Package release zip
+        run: |
+          zip -q -r "pinyin-annotator-${GITHUB_REF_NAME}.zip" \
+            index.html main.html zhuyin.css README.md README.zh-TW.md README.zh-HK.md README.en.md \
+            mini.html pinyin.html plus.html zhuyin.html jyutping.html
+
+      # 发版说明优先用仓库内的三语模板（.github/release-notes.md），
+      # 缺失时回退为 GitHub 自动生成的 changelog。
+      - name: Prepare release notes
+        id: notes
+        run: |
+          NOTES=.github/release-notes.md
+          if [ -f "$NOTES" ]; then
+            PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || echo main)
+            sed -e "s/{{VERSION}}/${GITHUB_REF_NAME}/g" \
+                -e "s/{{PREV}}/${PREV}/g" \
+                "$NOTES" > "$RUNNER_TEMP/release-notes.md"
+            echo "path=$RUNNER_TEMP/release-notes.md" >> "$GITHUB_OUTPUT"
+            echo "三语模板已生成，上一版：$PREV"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "未找到三语模板，回退为自动生成"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: pinyin-annotator-*.zip
+          body_path: ${{ steps.notes.outputs.path }}
+          generate_release_notes: ${{ steps.notes.outputs.path == '' }}
